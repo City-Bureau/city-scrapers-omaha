@@ -6,7 +6,7 @@ from city_scrapers_core.items import Meeting
 from city_scrapers_core.spiders import CityScrapersSpider
 
 
-class OmahaPlanningSpider(CityScrapersSpider):
+class OmahaPlanningMixin:
     """Base spider for scraping tables on Omaha planning commissions"""
 
     timezone = "America/Chicago"
@@ -15,9 +15,14 @@ class OmahaPlanningSpider(CityScrapersSpider):
     def parse(self, response):
         table = response.css("table.tabclr")
 
-        header_spans = table.xpath(".//td[@colspan=4]//span/text()").getall()
-        time = re.findall(r"\d{1,2}:\d{2} [AP]\.M\.", header_spans[-2])[0]
-        address = header_spans[-1]
+        header = table.xpath(".//td[@colspan=4]").xpath("string()").get()
+        for line in header.splitlines():
+            try:
+                time = re.findall(r"\d{1,2}:\d{2} [AP]\.M\.", line)[0]
+            except IndexError:
+                pass
+        # not perfect since markup varies wildly, but gets enough to be useful
+        address = header.split(" - ")[-1].strip()
 
         for row in table.xpath(".//tr[@valign='top']"):
             try:
@@ -25,21 +30,14 @@ class OmahaPlanningSpider(CityScrapersSpider):
             except ValueError:
                 continue
 
-            # the text here may be nested in a few ways
-            date = agenda.xpath(".//text()").get().strip()
-            if not date:
-                date = agenda.xpath(".//a/text()").get()
-            if date is None:
-                date = agenda.xpath(".//p/text()").get()
-            if date is None:
-                date = agenda.xpath(".//span/text()").get().strip("*")
+            date = agenda.xpath("string()").get().strip()
             date = date.replace("20222", "2022")
 
             agenda_link = agenda.xpath(".//a/@href").get()
             disposition_link = disposition_agenda.xpath(".//a/@href").get()
             minutes_link = minutes.xpath(".//a/@href").get()
 
-            start = dateutil.parser.parse(f"{date} {time}")
+            start = dateutil.parser.parse(f"{date} {time}".replace("*", ""))
 
             links = []
             if agenda_link:
@@ -73,7 +71,7 @@ class OmahaPlanningSpider(CityScrapersSpider):
             yield meeting
 
 
-class OmahaPlanningAppeals(OmahaPlanningSpider):
+class OmahaPlanningAppeals(OmahaPlanningMixin, CityScrapersSpider):
     name = "omaha_planning_appeals"
     agency = "Omaha Planning Department: Board of Appeals"
     start_urls = [
@@ -81,10 +79,34 @@ class OmahaPlanningAppeals(OmahaPlanningSpider):
     ]
 
 
-class OmahaAirSpider(OmahaPlanningSpider):
+class OmahaPlanningAir(OmahaPlanningMixin, CityScrapersSpider):
     name = "omaha_planning_air"
     agency = "Omaha Planning Department: Air Conditioning / Air Distribution Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/"
         "air-conditioning-air-distribution-board",
+    ]
+
+
+class OmahaPlanningBuildingReview(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_building_review"
+    agency = "Omaha Planning Department: Building Board of Review"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "building-board-of-review",
+    ]
+
+
+class OmahaPlanningElectrical(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_electrical"
+    agency = "Omaha Planning Department: Electrical Board"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "electrical-examining-board",
+    ]
+
+
+class OmahaPlanningLandmarks(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_landmarks"
+    agency = "Omaha Planning Department: Landmarks Commission"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "landmarks-commission",
     ]

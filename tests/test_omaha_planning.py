@@ -4,13 +4,13 @@ from os.path import dirname, join
 from city_scrapers_core.utils import file_response
 from freezegun import freeze_time
 
-from city_scrapers.spiders.omaha_planning import OmahaPlanningSpider
+from city_scrapers.spiders.omaha_planning import OmahaPlanningAppeals
 
 test_response = file_response(
     join(dirname(__file__), "files", "omaha_planning.html"),
     url="https://planning.cityofomaha.org/boards/administrative-board-of-appeals",
 )
-spider = OmahaPlanningSpider()
+spider = OmahaPlanningAppeals()
 
 freezer = freeze_time("2022-08-09")
 freezer.start()
@@ -29,9 +29,7 @@ def test_start():
 
 
 def test_location():
-    assert parsed_items[0]["location"] == {
-        "address": "Omaha-Douglas Civic Center - 1819 Farnam Street"
-    }
+    assert parsed_items[0]["location"] == {"address": "1819 Farnam Street"}
 
 
 def test_links():
