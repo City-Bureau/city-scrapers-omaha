@@ -30,7 +30,7 @@ class OmahaMudSpider(CityScrapersSpider):
             # date is first part of date_td + time extracted from details
             start = dateutil.parser.parse(date_td.split(" - ")[0] + time)
             meeting = Meeting(
-                title=date_td,
+                title=date_td.split(" - ")[1].strip(),
                 description=details_td,
                 classification=self._parse_classification(item),
                 start=start,
