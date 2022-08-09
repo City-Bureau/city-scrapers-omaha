@@ -27,7 +27,11 @@ class OmahaPlanningSpider(CityScrapersSpider):
                 _, agenda, disposition_agenda, minutes = row.xpath("./td")
             except ValueError:
                 continue
-            date = agenda.xpath("text()").get()
+            date = agenda.xpath(".//a/text()").get()
+            if date is None:
+                date = agenda.xpath(".//p/text()").get()
+            if date is None:
+                date = agenda.xpath(".//span/text()").get().strip("*")
             agenda_link = agenda.xpath(".//a/@href").get()
             disposition_link = disposition_agenda.xpath(".//a/@href").get()
             minutes_link = minutes.xpath(".//a/@href").get()
