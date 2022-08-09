@@ -32,14 +32,20 @@ class OmahaPlanningMixin:
 
             date = agenda.xpath("string()").get().strip()
             date = date.replace("20222", "2022")
-            if "CANCELED" in date:
+
+            # look for cancelled meetings, irregularly specified
+            if "CANCELED" in date or "CANCELLED" in date or "NO " in date:
                 continue
 
             agenda_link = agenda.xpath(".//a/@href").get()
             disposition_link = disposition_agenda.xpath(".//a/@href").get()
             minutes_link = minutes.xpath(".//a/@href").get()
 
-            start = dateutil.parser.parse(f"{date} {time}".replace("*", ""))
+            try:
+                start = dateutil.parser.parse(f"{date} {time}".replace("*", ""))
+            except Exception:
+                print("Could not parse date: ", date, time)
+                continue
 
             links = []
             if agenda_link:
@@ -127,4 +133,28 @@ class OmahaPlanningPlumbing(OmahaPlanningMixin, CityScrapersSpider):
     agency = "Omaha Planning Department: Plumbing Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "plumbing-board",
+    ]
+
+
+class OmahaPlanningPropertyMaint(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_property_maintenance"
+    agency = "Omaha Planning Department: Property Maintenance Appeals Board"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "property-maintenance-appeals-board",
+    ]
+
+
+class OmahaPlanningUrbanDesign(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_urban_design"
+    agency = "Omaha Planning Department: Urban Design Review Board"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "urban-design-review-board",
+    ]
+
+
+class OmahaPlanningZoning(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_zoning"
+    agency = "Omaha Planning Department: Zoning Board of Appeals"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "zoning-board-of-appeals",
     ]

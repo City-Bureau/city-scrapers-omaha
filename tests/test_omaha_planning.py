@@ -13,6 +13,9 @@ from city_scrapers.spiders.omaha_planning import (
     OmahaPlanningLandmarks,
     OmahaPlanningPlanning,
     OmahaPlanningPlumbing,
+    OmahaPlanningPropertyMaint,
+    OmahaPlanningUrbanDesign,
+    OmahaPlanningZoning,
 )
 
 test_response = file_response(
@@ -94,6 +97,21 @@ def test_links():
             OmahaPlanningPlumbing,
             "omaha_planning_plumbing.html",
             datetime(2022, 1, 26, 13, 30),
+        ),
+        (
+            OmahaPlanningPropertyMaint,
+            "omaha_planning_property_maintenance.html",
+            datetime(2022, 3, 3, 13, 30),
+        ),
+        (
+            OmahaPlanningUrbanDesign,
+            "omaha_planning_urban.html",
+            datetime(2022, 4, 21, 14, 30),
+        ),
+        (
+            OmahaPlanningZoning,
+            "omaha_planning_zoning.html",
+            datetime(2022, 1, 13, 13, 0),
         ),
     ],
 )
