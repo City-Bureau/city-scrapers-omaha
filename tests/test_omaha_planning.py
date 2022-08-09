@@ -1,13 +1,20 @@
 from datetime import datetime
 from os.path import dirname, join
 
+import pytest
 from city_scrapers_core.utils import file_response
 from freezegun import freeze_time
 
-from city_scrapers.spiders.omaha_planning import OmahaPlanningAppeals
+from city_scrapers.spiders.omaha_planning import (
+    OmahaPlanningAir,
+    OmahaPlanningAppeals,
+    OmahaPlanningBuildingReview,
+    OmahaPlanningElectrical,
+    OmahaPlanningLandmarks,
+)
 
 test_response = file_response(
-    join(dirname(__file__), "files", "omaha_planning.html"),
+    join(dirname(__file__), "files", "omaha_planning_appeals.html"),
     url="https://planning.cityofomaha.org/boards/administrative-board-of-appeals",
 )
 spider = OmahaPlanningAppeals()
@@ -50,3 +57,39 @@ def test_links():
             "title": "Minutes",
         },
     ]
+
+
+@pytest.mark.parametrize(
+    "cls, file, first_meeting",
+    [
+        (
+            OmahaPlanningAppeals,
+            "omaha_planning_appeals.html",
+            datetime(2022, 1, 24, 13, 0),
+        ),
+        (OmahaPlanningAir, "omaha_planning_air.html", datetime(2022, 1, 4, 13, 30)),
+        (
+            OmahaPlanningBuildingReview,
+            "omaha_planning_building.html",
+            datetime(2022, 1, 10, 13, 0),
+        ),
+        (
+            OmahaPlanningElectrical,
+            "omaha_planning_electrical.html",
+            datetime(2022, 1, 1, 1, 0),
+        ),
+        (
+            OmahaPlanningLandmarks,
+            "omaha_planning_landmarks.html",
+            datetime(2022, 1, 12, 13, 30),
+        ),
+    ],
+)
+def test_planning_subclasses(cls, file, first_meeting):
+    test_response = file_response(
+        join(dirname(__file__), "files", file), url="https://not-used.example"
+    )
+    spider = cls()
+    parsed_items = [item for item in spider.parse(test_response)]
+
+    assert parsed_items[0]["start"] == first_meeting
