@@ -24,7 +24,7 @@ class OmahaPlanningMixin:
         # not perfect since markup varies wildly, but gets enough to be useful
         address = header.split(" - ")[-1].strip()
 
-        for row in table.xpath(".//tr[@valign='top']"):
+        for row in table.xpath(".//tr")[2:]:
             try:
                 _, agenda, disposition_agenda, minutes = row.xpath("./td")
             except ValueError:
@@ -32,6 +32,8 @@ class OmahaPlanningMixin:
 
             date = agenda.xpath("string()").get().strip()
             date = date.replace("20222", "2022")
+            if "CANCELED" in date:
+                continue
 
             agenda_link = agenda.xpath(".//a/@href").get()
             disposition_link = disposition_agenda.xpath(".//a/@href").get()

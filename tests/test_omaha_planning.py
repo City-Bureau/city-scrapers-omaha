@@ -76,7 +76,7 @@ def test_links():
         (
             OmahaPlanningElectrical,
             "omaha_planning_electrical.html",
-            datetime(2022, 1, 1, 1, 0),
+            datetime(2022, 4, 15, 13, 30),
         ),
         (
             OmahaPlanningLandmarks,
