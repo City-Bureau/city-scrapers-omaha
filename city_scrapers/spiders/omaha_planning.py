@@ -120,3 +120,11 @@ class OmahaPlanningPlanning(OmahaPlanningMixin, CityScrapersSpider):
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "planning-board",
     ]
+
+
+class OmahaPlanningPlumbing(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_plumbing"
+    agency = "Omaha Planning Department: Plumbing Board"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "plumbing-board",
+    ]
