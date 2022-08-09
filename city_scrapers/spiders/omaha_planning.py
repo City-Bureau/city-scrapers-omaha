@@ -7,12 +7,9 @@ from city_scrapers_core.spiders import CityScrapersSpider
 
 
 class OmahaPlanningSpider(CityScrapersSpider):
-    name = "omaha_planning"
-    agency = "Omaha Planning Department: Board of Appeals"
+    """Base spider for scraping tables on Omaha planning commissions"""
+
     timezone = "America/Chicago"
-    start_urls = [
-        "https://planning.cityofomaha.org/boards/administrative-board-of-appeals"
-    ]
     BASE_URL = "https://planning.cityofomaha.org/"
 
     def parse(self, response):
@@ -27,11 +24,17 @@ class OmahaPlanningSpider(CityScrapersSpider):
                 _, agenda, disposition_agenda, minutes = row.xpath("./td")
             except ValueError:
                 continue
-            date = agenda.xpath(".//a/text()").get()
+
+            # the text here may be nested in a few ways
+            date = agenda.xpath(".//text()").get().strip()
+            if not date:
+                date = agenda.xpath(".//a/text()").get()
             if date is None:
                 date = agenda.xpath(".//p/text()").get()
             if date is None:
                 date = agenda.xpath(".//span/text()").get().strip("*")
+            date = date.replace("20222", "2022")
+
             agenda_link = agenda.xpath(".//a/@href").get()
             disposition_link = disposition_agenda.xpath(".//a/@href").get()
             minutes_link = minutes.xpath(".//a/@href").get()
@@ -68,3 +71,20 @@ class OmahaPlanningSpider(CityScrapersSpider):
             meeting["id"] = self._get_id(meeting)
 
             yield meeting
+
+
+class OmahaPlanningAppeals(OmahaPlanningSpider):
+    name = "omaha_planning_appeals"
+    agency = "Omaha Planning Department: Board of Appeals"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/administrative-board-of-appeals"
+    ]
+
+
+class OmahaAirSpider(OmahaPlanningSpider):
+    name = "omaha_planning_air"
+    agency = "Omaha Planning Department: Air Conditioning / Air Distribution Board"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/"
+        "air-conditioning-air-distribution-board",
+    ]
