@@ -11,6 +11,7 @@ from city_scrapers.spiders.omaha_planning import (
     OmahaPlanningBuildingReview,
     OmahaPlanningElectrical,
     OmahaPlanningLandmarks,
+    OmahaPlanningPlanning,
 )
 
 test_response = file_response(
@@ -82,6 +83,11 @@ def test_links():
             OmahaPlanningLandmarks,
             "omaha_planning_landmarks.html",
             datetime(2022, 1, 12, 13, 30),
+        ),
+        (
+            OmahaPlanningPlanning,
+            "omaha_planning_planning.html",
+            datetime(2022, 1, 5, 13, 30),
         ),
     ],
 )

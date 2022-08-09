@@ -18,7 +18,7 @@ class OmahaPlanningMixin:
         header = table.xpath(".//td[@colspan=4]").xpath("string()").get()
         for line in header.splitlines():
             try:
-                time = re.findall(r"\d{1,2}:\d{2} [AP]\.M\.", line)[0]
+                time = re.findall(r"\d{1,2}:\d{2} [AP]\.?M\.?", line, re.I)[0]
             except IndexError:
                 pass
         # not perfect since markup varies wildly, but gets enough to be useful
@@ -111,4 +111,12 @@ class OmahaPlanningLandmarks(OmahaPlanningMixin, CityScrapersSpider):
     agency = "Omaha Planning Department: Landmarks Commission"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "landmarks-commission",
+    ]
+
+
+class OmahaPlanningPlanning(OmahaPlanningMixin, CityScrapersSpider):
+    name = "omaha_planning_planning"
+    agency = "Omaha Planning Department: Planning Board"
+    start_urls = [
+        "https://planning.cityofomaha.org/boards/" "planning-board",
     ]
