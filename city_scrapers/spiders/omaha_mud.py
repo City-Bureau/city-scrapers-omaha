@@ -7,7 +7,7 @@ from city_scrapers_core.spiders import CityScrapersSpider
 
 
 class OmahaMudSpider(CityScrapersSpider):
-    name = "omaha_mud"
+    name = "oma_mud"
     agency = "Omaha Metropolitan Utilities District"
     timezone = "America/Chicago"
     start_urls = [

@@ -80,7 +80,7 @@ class OmahaPlanningMixin:
 
 
 class OmahaPlanningAppeals(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_appeals"
+    name = "oma_planning_appeals"
     agency = "Omaha Planning Department: Board of Appeals"
     start_urls = [
         "https://planning.cityofomaha.org/boards/administrative-board-of-appeals"
@@ -88,7 +88,7 @@ class OmahaPlanningAppeals(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningAir(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_air"
+    name = "oma_planning_air"
     agency = "Omaha Planning Department: Air Conditioning / Air Distribution Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/"
@@ -97,7 +97,7 @@ class OmahaPlanningAir(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningBuildingReview(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_building_review"
+    name = "oma_planning_building_review"
     agency = "Omaha Planning Department: Building Board of Review"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "building-board-of-review",
@@ -105,7 +105,7 @@ class OmahaPlanningBuildingReview(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningElectrical(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_electrical"
+    name = "oma_planning_electrical"
     agency = "Omaha Planning Department: Electrical Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "electrical-examining-board",
@@ -113,7 +113,7 @@ class OmahaPlanningElectrical(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningLandmarks(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_landmarks"
+    name = "oma_planning_landmarks"
     agency = "Omaha Planning Department: Landmarks Commission"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "landmarks-commission",
@@ -121,7 +121,7 @@ class OmahaPlanningLandmarks(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningPlanning(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_planning"
+    name = "oma_planning_planning"
     agency = "Omaha Planning Department: Planning Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "planning-board",
@@ -129,7 +129,7 @@ class OmahaPlanningPlanning(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningPlumbing(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_plumbing"
+    name = "oma_planning_plumbing"
     agency = "Omaha Planning Department: Plumbing Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "plumbing-board",
@@ -137,7 +137,7 @@ class OmahaPlanningPlumbing(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningPropertyMaint(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_property_maintenance"
+    name = "oma_planning_property_maintenance"
     agency = "Omaha Planning Department: Property Maintenance Appeals Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "property-maintenance-appeals-board",
@@ -145,7 +145,7 @@ class OmahaPlanningPropertyMaint(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningUrbanDesign(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_urban_design"
+    name = "oma_planning_urban_design"
     agency = "Omaha Planning Department: Urban Design Review Board"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "urban-design-review-board",
@@ -153,7 +153,7 @@ class OmahaPlanningUrbanDesign(OmahaPlanningMixin, CityScrapersSpider):
 
 
 class OmahaPlanningZoning(OmahaPlanningMixin, CityScrapersSpider):
-    name = "omaha_planning_zoning"
+    name = "oma_planning_zoning"
     agency = "Omaha Planning Department: Zoning Board of Appeals"
     start_urls = [
         "https://planning.cityofomaha.org/boards/" "zoning-board-of-appeals",
