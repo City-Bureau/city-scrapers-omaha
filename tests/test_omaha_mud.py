@@ -4,7 +4,7 @@ from os.path import dirname, join
 from city_scrapers_core.utils import file_response
 from freezegun import freeze_time
 
-from city_scrapers.spiders.omaha_mud import OmahaMudSpider
+from city_scrapers.spiders.oma_mud import OmahaMudSpider
 
 test_response = file_response(
     join(dirname(__file__), "files", "omaha_mud.html"),

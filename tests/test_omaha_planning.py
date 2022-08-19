@@ -5,7 +5,7 @@ import pytest
 from city_scrapers_core.utils import file_response
 from freezegun import freeze_time
 
-from city_scrapers.spiders.omaha_planning import (
+from city_scrapers.spiders.oma_planning import (
     OmahaPlanningAir,
     OmahaPlanningAppeals,
     OmahaPlanningBuildingReview,
