@@ -41,7 +41,7 @@ def test_start():
 
 
 def test_location():
-    assert parsed_items[0]["location"] == {"address": "1819 Farnam Street"}
+    assert parsed_items[0]["location"] == {"address": "1819 Farnam Street", "name": ""}
 
 
 def test_links():
