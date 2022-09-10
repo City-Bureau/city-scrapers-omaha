@@ -68,7 +68,7 @@ class OmahaPlanningMixin:
                 end=None,
                 all_day=False,
                 time_notes="",
-                location={"address": address},
+                location={"address": address, "name": ""},
                 links=links,
                 source=response.url,
             )
