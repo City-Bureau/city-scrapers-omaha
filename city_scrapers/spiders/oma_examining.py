@@ -8,7 +8,7 @@ class OmahaExaminingBoardMixin:
     """Base spider for scraping tables on Omaha examining boards"""
 
     timezone = "America/Chicago"
-    BASE_URL = "https://planning.cityofomaha.org/"
+    BASE_URL = "https://planning.cityofomaha.org"
 
     def parse(self, response):
         table = response.css("table.tabclr")
