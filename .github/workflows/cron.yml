@@ -1,9 +1,9 @@
-name: Cron
+name: Cron for Omaha
 
 on:
   schedule:
     # Set any time that you'd like scrapers to run (in UTC)
-    - cron: "1 6 * * *"
+    - cron: "27 8 * * *"
   workflow_dispatch:
 
 env:
