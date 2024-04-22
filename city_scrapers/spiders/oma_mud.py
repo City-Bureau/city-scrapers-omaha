@@ -10,35 +10,34 @@ class OmahaMudSpider(CityScrapersSpider):
     name = "oma_mud"
     agency = "Omaha Metropolitan Utilities District"
     timezone = "America/Chicago"
-    start_urls = [
-        "https://www.mudomaha.com/our-company/board-of-directors/board-meetings"
-    ]
+    start_urls = ["https://www.mudomaha.com/about-us/board-meetings/"]
+    location = {
+        "address": "7350 World Communications Drive",  # No specific address given
+        "name": "Metropolitan Utilities District",
+    }
+    title = "Committee and Board meetings"
 
     def parse(self, response):
-        """
-        `parse` should always `yield` Meeting items.
-
-        Change the `_parse_title`, `_parse_start`, etc methods to fit your scraping
-        needs.
-        """
-        for item in response.xpath("//table[1]/tbody/tr"):
-            date_td = item.css(".views-field-field-date::text").get()
-            if not date_td:
+        for item in response.xpath("//ul[@class='meetings-list']/li"):
+            date_text = item.xpath(".//p[@class='date']/text()").get()
+            if not date_text:
                 continue
-            date_td = date_td.strip()
-            details_td = item.css(".views-field-field-details::text").get().strip()
-            time = re.findall(r" \d{1,2}:\d{2} [a|p]\.m\.", details_td)[0]
-            # date is first part of date_td + time extracted from details
-            start = dateutil.parser.parse(date_td.split(" - ")[0] + time)
+            date_text = date_text.strip()
+            details = item.xpath(".//article//p/text()").getall()
+            time = re.findall(r"\d{1,2}:\d{2} [a|p]\.m\.", " ".join(details))
+            if not time:
+                continue
+            # Assuming the first time is always the start of the meeting
+            start = dateutil.parser.parse(date_text + " " + time[0])
             meeting = Meeting(
-                title=date_td.split(" - ")[1].strip(),
-                description=details_td,
+                title=self.title,
+                description=" ".join(details).replace("\n", "").strip(),
                 classification=self._parse_classification(item),
                 start=start,
-                end=self._parse_end(item),
+                end=False,
                 all_day=self._parse_all_day(item),
-                time_notes=self._parse_time_notes(item),
-                location=self._parse_location(item),
+                time_notes="",
+                location=self.location,
                 links=self._parse_links(item),
                 source=self._parse_source(response),
             )
@@ -49,44 +48,19 @@ class OmahaMudSpider(CityScrapersSpider):
             yield meeting
 
     def _parse_classification(self, item):
-        """Parse or generate classification from allowed options."""
         return NOT_CLASSIFIED
 
-    def _parse_start(self, item):
-        """Parse start datetime as a naive datetime object."""
-        return None
-
-    def _parse_end(self, item):
-        """Parse end datetime as a naive datetime object. Added by pipeline if None"""
-        return None
-
-    def _parse_time_notes(self, item):
-        """Parse any additional notes on the timing of the meeting"""
-        return ""
-
     def _parse_all_day(self, item):
-        """Parse or generate all-day status. Defaults to False."""
         return False
 
-    def _parse_location(self, item):
-        """Parse or generate location."""
-        return {
-            "address": "",
-            "name": "",
-        }
-
     def _parse_links(self, item):
-        """Parse or generate links."""
-        BASE_URL = "https://www.mudomaha.com/"
-        links = item.xpath(".//a/@href").getall() or []
+        links = item.xpath(
+            ".//div[contains(@class, 'meetings-media')]//a/@href"
+        ).getall()
         return [
-            {
-                "href": BASE_URL + link,
-                "title": "Video" if "youtube" in link else "Documents",
-            }
+            {"href": link, "title": "Video" if "youtube" in link else "Documents"}
             for link in links
         ]
 
     def _parse_source(self, response):
-        """Parse or generate source."""
         return response.url
