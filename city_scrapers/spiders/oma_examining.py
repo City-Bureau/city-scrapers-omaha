@@ -56,16 +56,6 @@ class OmahaExaminingBoardMixin:
             yield meeting
 
 
-class OmahaPlanningExaminersEngineers(OmahaExaminingBoardMixin, CityScrapersSpider):
-    name = "oma_planning_exam_engineers"
-    agency = "Omaha Planning Department: Board of Examiners (For Engineers)"
-    start_urls = [
-        "https://planning.cityofomaha.org/boards/board-of-examiners-for-engineers"  # noqa
-    ]
-    time = "12pm"
-    address = "Room 1210 - 12th Floor; Omaha-Douglas Civic Center, 1819 Farnam Street"
-
-
 class OmahaPlanningExaminersPipefitters(OmahaExaminingBoardMixin, CityScrapersSpider):
     name = "oma_planning_exam_pipefitters"
     agency = "Omaha Planning Department: Board of Examiners (For Engineers)"
