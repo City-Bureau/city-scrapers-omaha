@@ -2,85 +2,156 @@ from datetime import datetime
 from os.path import dirname, join
 
 import pytest
-from city_scrapers_core.constants import NOT_CLASSIFIED
+from city_scrapers_core.constants import BOARD, TENTATIVE
 from city_scrapers_core.utils import file_response
 from freezegun import freeze_time
 
 from city_scrapers.spiders.oma_municipal_bank import OmaMunicipalBankSpider
 
-test_response = file_response(
-    join(dirname(__file__), "files", "oma_municipal_bank.html"),
-    url="https://omahalandbank.org/get-involved/board-meetings/",
+START_URL = "https://omahalandbank.org/get-involved/board-meetings/"
+EVENTBRITE_JUNE_URL = (
+    "https://www.eventbrite.com/e/"
+    "omaha-municipal-land-bank-board-meeting-tickets-1985378116391"
+    "?aff=oddtdtcreator&keep_tld=true"
 )
+
+LOCATION = {
+    "name": (
+        "Metropolitan Community College - "
+        "Fort Omaha Campus - Mule Barn Building 21 - Room 112"
+    ),
+    "address": "5300 North 30th Street, Omaha, NE 68111",
+}
+
 spider = OmaMunicipalBankSpider()
 
-freezer = freeze_time("2026-05-27")
-freezer.start()
 
-parsed_items = [item for item in spider.parse(test_response)]
-
-freezer.stop()
-
-
-def test_tests():
-    print("Please write some tests for this spider or at least disable this one.")
-    assert False
-
-
-"""
-Uncomment below
-"""
-
-# def test_title():
-#     assert parsed_items[0]["title"] == "EXPECTED TITLE"
+@pytest.fixture(scope="module")
+def listing_requests():
+    """All Scrapy requests yielded from the main listing page."""
+    response = file_response(
+        join(dirname(__file__), "files", "oma_municipal_bank.html"),
+        url=START_URL,
+    )
+    with freeze_time("2026-06-01"):
+        return list(spider.parse(response))
 
 
-# def test_description():
-#     assert parsed_items[0]["description"] == "EXPECTED DESCRIPTION"
+@pytest.fixture(scope="module")
+def tentative_june():
+    """Meeting parsed from June Eventbrite detail page."""
+    response = file_response(
+        join(dirname(__file__), "files", "oma_municipal_bank_eventbrite.html"),
+        url=EVENTBRITE_JUNE_URL,
+    )
+    response.meta["date_text"] = "June 10, 2026"
+    response.meta["source"] = EVENTBRITE_JUNE_URL
+    with freeze_time("2026-06-01"):
+        return list(spider._parse_tentative_detail(response))[0]
 
 
-# def test_start():
-#     assert parsed_items[0]["start"] == datetime(2019, 1, 1, 0, 0)
+def test_yields_tentative_requests(listing_requests):
+    eventbrite = [
+        r for r in listing_requests if hasattr(r, "url") and "eventbrite" in r.url
+    ]
+    assert len(eventbrite) == 3
 
 
-# def test_end():
-#     assert parsed_items[0]["end"] == datetime(2019, 1, 1, 0, 0)
+def test_listing_tentative_details_page_urls(listing_requests):
+    urls = {
+        r.url for r in listing_requests if hasattr(r, "url") and "eventbrite" in r.url
+    }
+    assert (
+        "https://www.eventbrite.com/e/omaha-municipal-land-bank-board-meeting-tickets-1985378116391?aff=oddtdtcreator&keep_tld=true"  # noqa
+        in urls
+    )
+    assert (
+        "https://www.eventbrite.com/e/omaha-municipal-land-bank-board-meeting-tickets-1987354858881?aff=oddtdtcreator"  # noqa
+        in urls
+    )
+    assert "https://www.eventbrite.com/e/1989847883585?aff=oddtdtcreator" in urls
 
 
-# def test_time_notes():
-#     assert parsed_items[0]["time_notes"] == "EXPECTED TIME NOTES"
+def test_listing_archived_requests_count(listing_requests):
+    archived = [
+        r
+        for r in listing_requests
+        if hasattr(r, "url") and "omahalandbank.org/project/" in r.url
+    ]
+    assert len(archived) == 45
 
 
-# def test_id():
-#     assert parsed_items[0]["id"] == "EXPECTED ID"
+def test_listing_first_archived_url(listing_requests):
+    archived = [
+        r
+        for r in listing_requests
+        if hasattr(r, "url") and "omahalandbank.org/project/" in r.url
+    ]
+    assert archived[0].url == "https://omahalandbank.org/project/may-13/"
 
 
-# def test_status():
-#     assert parsed_items[0]["status"] == "EXPECTED STATUS"
+def test_listing_first_archived_start(listing_requests):
+    """Start date is parsed from listing page and passed in request meta."""
+    archived = [
+        r
+        for r in listing_requests
+        if hasattr(r, "url") and "omahalandbank.org/project/" in r.url
+    ]
+    assert archived[0].meta["start"] == datetime(2026, 5, 13)
 
 
-# def test_location():
-#     assert parsed_items[0]["location"] == {
-#         "name": "EXPECTED NAME",
-#         "address": "EXPECTED ADDRESS"
-#     }
+def test_listing_archived_has_time_notes(listing_requests):
+    archived = [
+        r
+        for r in listing_requests
+        if hasattr(r, "url") and "omahalandbank.org/project/" in r.url
+    ]
+    assert (
+        "The Omaha Municipal Land Bank\u2019s Board of Directors meet at 9 AM on "
+        "the second Wednesday of each month. Our board meetings are held at "
+        "Metropolitan Community College \u2013 Fort Campus \u2013 Mule Barn Room 112."
+    ) in archived[0].meta["time_notes"]
 
 
-# def test_source():
-#     assert parsed_items[0]["source"] == "EXPECTED URL"
+# --- Tentative meeting (June 10) ---
 
 
-# def test_links():
-#     assert parsed_items[0]["links"] == [{
-#       "href": "EXPECTED HREF",
-#       "title": "EXPECTED TITLE"
-#     }]
+def test_tentative_identity(tentative_june):
+    assert tentative_june["title"] == "Board Meeting"
+    assert tentative_june["classification"] == BOARD
+    assert tentative_june["status"] == TENTATIVE
+    assert tentative_june["start"] == datetime(2026, 6, 10, 8, 30)
+    assert tentative_june["end"] is None
+    assert tentative_june["all_day"] is False
+    assert tentative_june["location"] == LOCATION
+    assert tentative_june["source"] == EVENTBRITE_JUNE_URL
+    assert tentative_june["links"] == []
+    assert (
+        "Our monthly board meeting were we vote on items and discuss "
+        "future plans with our board of directors. This is free and open "
+        "to the public. For those who cannot attend in-person, we will be streaming "
+        "our meeting via Zoom. Please see the link below to join:"
+    ).lower() in tentative_june["description"].lower()
 
 
-# def test_classification():
-#     assert parsed_items[0]["classification"] == NOT_CLASSIFIED
+# --- Parametrized across tentative ---
 
 
-# @pytest.mark.parametrize("item", parsed_items)
-# def test_all_day(item):
-#     assert item["all_day"] is False
+@pytest.mark.parametrize("fixture_name", ["tentative_june"])
+def test_all_day_false(fixture_name, request):
+    assert request.getfixturevalue(fixture_name)["all_day"] is False
+
+
+@pytest.mark.parametrize("fixture_name", ["tentative_june"])
+def test_title_board_meeting(fixture_name, request):
+    assert request.getfixturevalue(fixture_name)["title"] == "Board Meeting"
+
+
+@pytest.mark.parametrize("fixture_name", ["tentative_june"])
+def test_classification_board(fixture_name, request):
+    assert request.getfixturevalue(fixture_name)["classification"] == BOARD
+
+
+@pytest.mark.parametrize("fixture_name", ["tentative_june"])
+def test_location_correct(fixture_name, request):
+    assert request.getfixturevalue(fixture_name)["location"] == LOCATION

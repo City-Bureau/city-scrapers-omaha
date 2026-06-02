@@ -1,7 +1,6 @@
 from zoneinfo import ZoneInfo
 
 import scrapy
-# from pytz import timezone
 from city_scrapers_core.constants import BOARD
 from city_scrapers_core.items import Meeting
 from city_scrapers_core.spiders import CityScrapersSpider
@@ -23,13 +22,10 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         ),
         "address": "5300 North 30th Street, Omaha, NE 68111",
     }
-    # def _tz(self):
-    #     return timezone(self.timezone)
+
     tz = ZoneInfo(timezone)
 
     def start_requests(self):
-        # self.seen_ids = set()
-
         yield scrapy.Request(self.start_url, callback=self.parse)
 
     def parse(self, response):
@@ -66,7 +62,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         start = (
             self._parse_dt(dt_attr)
             if dt_attr
-            else self._parse_dt(f"{response.meta['date_text']} 9:00 AM")
+            else self._parse_dt(f"{response.meta['date_text']}")
         )
         description = " ".join(
             t.strip()
@@ -85,7 +81,11 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
 
     def _parse_archived_detail(self, response):
         """Parse archived meeting detail page for links/attachments."""
-        if response.url == "https://omahalandbank.org/project/july-12/":
+
+        if (
+            response.url == "https://omahalandbank.org/project/july-12/"
+            and response.meta.get("start").year == 2025
+        ):
             return  # Skip this page which is incorrect
 
         links = [
@@ -102,7 +102,6 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
             links=links,
             source=self.start_url,
             time_notes=response.meta["time_notes"],
-            # deduplicate=True,
         )
         if meeting:
             yield meeting
@@ -120,20 +119,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
             links=links,
             source=source,
         )
-        meeting["status"] = self._get_status(meeting)
-        meeting["id"] = self._get_id(meeting)
 
-        # if deduplicate:
-        #     # Always prefer the version with links:
-        #     # - if this meeting has links, register it and yield
-        #     # - if this meeting has no links and we've already seen it, skip
-        #     # - if this meeting has no links and it's new, register it tentatively
-        #     if links:
-        #         self.seen_ids.add(meeting["id"])
-        #         return meeting
-        #     if meeting["id"] in self.seen_ids:
-        #         return None
-        #     self.seen_ids.add(meeting["id"])
         meeting["status"] = self._get_status(meeting)
         meeting["id"] = self._get_id(meeting)
         return meeting
