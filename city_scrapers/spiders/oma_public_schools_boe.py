@@ -19,12 +19,14 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
         "https://www.youtube.com/playlist?list=PLznBr7jR8aKWxFFAXV3aeXG45JzJ9Iboy"
     )
 
+    start_year = 2020
+
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
     }
 
     def __init__(self, *args, **kwargs):
-        self._past_start_dates = set()
+        self._past_meeting_starts = set()
         super().__init__(*args, **kwargs)
 
     def start_requests(self):
@@ -60,7 +62,11 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
                 continue
 
             is_cancelled = "cancelled" in raw.lower() or "canceled" in raw.lower()
-            clean_raw = raw.replace("Cancelled", "").replace("Canceled", "").strip()
+            clean_raw = re.sub(
+                r"cancelled|canceled", "", raw, flags=re.IGNORECASE
+            ).strip(
+                " -"
+            )  # noqa
 
             if " - " in clean_raw:
                 date_time_part, title = clean_raw.split(" - ", 1)
@@ -76,7 +82,7 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
                 self.logger.error(f"Failed to parse date from: {raw!r}")
                 continue
 
-            if start.year < 2020:
+            if start.year < self.start_year:
                 continue
 
             links = [
@@ -100,7 +106,7 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
                 source=self.past_meetings_url,
                 is_cancelled=is_cancelled,
             )
-            self._past_start_dates.add(start.date())
+            self._past_meeting_starts.add(start.replace(tzinfo=None))
             yield meeting
 
         yield scrapy.Request(
@@ -148,7 +154,7 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
             if not start:
                 continue
 
-            if start.date() in self._past_start_dates:
+            if start.replace(tzinfo=None) in self._past_meeting_starts:
                 continue
 
             title = article.css("a.fsCalendarEventLink::text").get("").strip()
@@ -183,6 +189,11 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
             return
 
         page_id = self._get_page_id(response)
+        if not page_id:
+            self.logger.warning(
+                "Could not determine Finalsite page_id; skipping Load More"
+            )  # noqa
+            return
 
         yield scrapy.Request(
             self._build_load_more_url(element_id, page_id, start_row),
@@ -205,11 +216,7 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
         )
 
     def _get_page_id(self, response):
-        """Extract Finalsite page_id from the page, fallback to known OPS page id."""
-        page_id = response.css("body::attr(data-pageid)").get()
-        if page_id:
-            return page_id
-
+        """Extract Finalsite page_id from the page."""
         page_id = response.css("[data-pageid]::attr(data-pageid)").get()
         if page_id:
             return page_id
@@ -218,7 +225,7 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
         if match:
             return match.group(1)
 
-        return "608"
+        return None
 
     def _build_meeting(
         self, title, start, end, location, links, source, is_cancelled=False
@@ -244,7 +251,7 @@ class OmaPublicSchoolsBoeSpider(CityScrapersSpider):
         if not dt_str:
             return None
         try:
-            dt = datetime.fromisoformat(dt_str)
+            dt = dateutil_parse(dt_str)
             if dt.tzinfo is not None:
                 local_tz = tz.gettz(self.timezone)
                 dt = dt.astimezone(local_tz).replace(tzinfo=None)
