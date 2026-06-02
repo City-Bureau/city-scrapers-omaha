@@ -130,7 +130,8 @@ def test_tentative_identity(tentative_june):
         "Our monthly board meeting were we vote on items and discuss "
         "future plans with our board of directors. This is free and open "
         "to the public. For those who cannot attend in-person, we will be streaming "
-        "our meeting via Zoom. Please see the link below to join:"
+        "our meeting via Zoom. Please see the link below to join: "
+        "https://us02web.zoom.us/j/88260954305?pwd=TmgikhiIhaszWAOtlzUCocsFaXOuIm.1"
     ).lower() in tentative_june["description"].lower()
 
 

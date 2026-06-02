@@ -66,7 +66,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         )
         description = " ".join(
             t.strip()
-            for t in response.css("[class*='Overview_summary'] p::text").getall()
+            for t in response.css("[class*='Overview_summary'] *::text").getall()
             if t.strip()
         )
         if start:
