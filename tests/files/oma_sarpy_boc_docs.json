@@ -1,0 +1,35 @@
+[
+  {
+    "AgendaCover": "<table></table>",
+    "DocumentType": 1,
+    "Html": "<html><body>Board Meetings - Jan 09 2024 Agenda</body></html>",
+    "Id": 321491,
+    "IsPublic": true,
+    "MeetingId": 4927,
+    "Name": "Board Meetings - Jan 09 2024",
+    "PublicReleaseDelayDateString": "",
+    "Type": 1
+  },
+  {
+    "AgendaCover": "",
+    "DocumentType": 9,
+    "Html": "<html><body>Board Meetings - Jan 09 2024 Document</body></html>",
+    "Id": 322969,
+    "IsPublic": false,
+    "MeetingId": 4927,
+    "Name": "Board Meetings - Jan 09 2024",
+    "PublicReleaseDelayDateString": "",
+    "Type": 2
+  },
+  {
+    "AgendaCover": "",
+    "DocumentType": 10,
+    "Html": "",
+    "Id": 322968,
+    "IsPublic": false,
+    "MeetingId": 4927,
+    "Name": "Board Meetings - Jan 09 2024",
+    "PublicReleaseDelayDateString": "",
+    "Type": 2
+  }
+]
