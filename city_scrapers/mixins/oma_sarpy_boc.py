@@ -85,7 +85,7 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         seen = set()
 
         for item in response.json():
-            name = item.get("Name", "")
+            name = item.get("Name") or ""
 
             if not any(name.startswith(prefix) for prefix in prefixes):
                 continue
@@ -112,15 +112,15 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
                 source=self._parse_source(item),
             )
 
-            meeting_id = item.get("Id")
-            if not meeting_id:
-                meeting["status"] = self._get_status(meeting)
+            if "NO MEETING" in name:
+                meeting["status"] = CANCELLED
                 meeting["id"] = self._get_id(meeting)
                 yield meeting
                 continue
 
-            if "NO MEETING" in name:
-                meeting["status"] = CANCELLED
+            meeting_id = item.get("Id")
+            if not meeting_id:
+                meeting["status"] = self._get_status(meeting)
                 meeting["id"] = self._get_id(meeting)
                 yield meeting
                 continue
@@ -132,13 +132,13 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
             yield scrapy.Request(
                 url=docs_url,
                 callback=self.parse_meeting_documents,
+                errback=self.errback_meeting_documents,
                 cb_kwargs={"meeting": meeting, "meeting_id": meeting_id},
             )
 
     def parse_meeting_documents(self, response, meeting, meeting_id):
         documents = response.json()
         meeting["links"].extend(self._parse_document_links(documents))
-        meeting["links"] = self._dedupe_links(meeting["links"])
 
         if self._is_cancelled(documents):
             meeting["status"] = CANCELLED
@@ -152,6 +152,7 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         yield scrapy.Request(
             url=video_url,
             callback=self.parse_video_link,
+            errback=self.errback_video_link,
             cb_kwargs={"meeting": meeting},
         )
 
@@ -160,6 +161,17 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         if video_href:
             meeting["links"].append({"href": video_href, "title": "Video"})
         meeting["links"] = self._dedupe_links(meeting["links"])
+        meeting["id"] = self._get_id(meeting)
+        yield meeting
+
+    def errback_meeting_documents(self, failure):
+        meeting = failure.request.cb_kwargs["meeting"]
+        meeting["status"] = self._get_status(meeting)
+        meeting["id"] = self._get_id(meeting)
+        yield meeting
+
+    def errback_video_link(self, failure):
+        meeting = failure.request.cb_kwargs["meeting"]
         meeting["id"] = self._get_id(meeting)
         yield meeting
 
@@ -185,7 +197,8 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         if not isinstance(record, dict) or not record.get("ShowVideoLink"):
             return None
 
-        event_id = (record.get("Event") or {}).get("eventId")
+        event = record.get("Event")
+        event_id = event.get("eventId") if isinstance(event, dict) else None
         if record.get("YouTube") and event_id:
             return f"https://www.youtube.com/watch?v={event_id}"
 
@@ -197,9 +210,9 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
                 continue
             searchable_text = " ".join(
                 [
-                    str(doc.get("Html", "")),
-                    str(doc.get("AgendaCover", "")),
-                    str(doc.get("Name", "")),
+                    str(doc.get("Html") or ""),
+                    str(doc.get("AgendaCover") or ""),
+                    str(doc.get("Name") or ""),
                 ]
             ).lower()
             if "cancelled" in searchable_text or "canceled" in searchable_text:
@@ -249,7 +262,7 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         return unique_links
 
     def _parse_title(self, item):
-        title = item.get("Name", "").strip()
+        title = (item.get("Name") or "").strip()
         title = re.sub(
             r"\s*-\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
             r"\s+\d{1,2}\s+\d{4}.*$",
@@ -289,7 +302,7 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         return self.source_url
 
     def _parse_location(self, item):
-        location = item.get("MeetingLocation", "").strip()
+        location = (item.get("MeetingLocation") or "").strip()
         if location.startswith("County Boardroom"):
             return {
                 "name": "County Boardroom",

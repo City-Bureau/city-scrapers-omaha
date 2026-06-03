@@ -70,7 +70,9 @@ def create_spiders():
         class_name = config["class_name"]
         if class_name not in globals():
             attrs = {k: v for k, v in config.items() if k != "class_name"}
-            spider_class = type(class_name, (OmaSarpyBocMixin,), attrs)
+            spider_class = type(OmaSarpyBocMixin)(
+                class_name, (OmaSarpyBocMixin,), attrs
+            )
             globals()[class_name] = spider_class
 
 
