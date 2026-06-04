@@ -1,3 +1,4 @@
+import re
 from zoneinfo import ZoneInfo
 
 import scrapy
@@ -62,6 +63,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
             if dt_attr
             else self._parse_dt(f"{response.meta['date_text']}")
         )
+        end = self._parse_eventbrite_end(response, start)
         description = " ".join(
             t.strip()
             for t in response.css("[class*='Overview_summary'] *::text").getall()
@@ -70,6 +72,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         if start:
             meeting = self._build_meeting(
                 start=start,
+                end=end,
                 links=[],
                 source=response.meta["source"],
                 description=description,
@@ -107,14 +110,14 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
             yield meeting
 
     def _build_meeting(
-        self, start, links, source, location, time_notes="", description=""
+        self, start, links, source, location, time_notes="", description="", end=None
     ):
         meeting = Meeting(
             title="Board Meeting",
             description=description,
             classification=BOARD,
             start=start,
-            end=None,
+            end=end,
             all_day=False,
             time_notes=time_notes,
             location=location,
@@ -125,6 +128,29 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         meeting["status"] = self._get_status(meeting)
         meeting["id"] = self._get_id(meeting)
         return meeting
+    
+    def _parse_eventbrite_end(self, response, start):
+        """Parse end time from Eventbrite datetime text."""
+        if not start:
+            return None
+
+        text = response.css("time::text").get("")
+
+        match = re.search(
+            r"\b\d{1,2}:\d{2}\s*[AP]M\s*-\s*([\d: ]+[AP]M)",
+            text,
+            re.I,
+        )
+
+        if not match:
+            return None
+
+        try:
+            return parse_date(
+                f"{start.strftime('%Y-%m-%d')} {match.group(1)}"
+            )
+        except Exception:
+            return None
 
     def _parse_eventbrite_location(self, response):
         """Parse location from Eventbrite page."""
