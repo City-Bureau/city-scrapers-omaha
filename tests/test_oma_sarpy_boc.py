@@ -268,7 +268,7 @@ def test_board_meetings_agenda_link(meetings_response, docs_response, video_resp
     )
 
 
-def test_board_meetings_no_nonpublic_links(
+def test_board_meetings_includes_all_documents(
     meetings_response, docs_response, video_response
 ):
     items = parse_final_items(
@@ -279,8 +279,8 @@ def test_board_meetings_no_nonpublic_links(
         4927,
     )
     titles = [link["title"] for link in items[0]["links"]]
-    assert "Minutes" not in titles
-    assert "Document" not in titles
+    assert "Minutes" in titles
+    assert "Document" in titles
 
 
 def test_board_meetings_video_link(meetings_response, docs_response, video_response):

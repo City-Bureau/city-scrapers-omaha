@@ -5,6 +5,8 @@ a common CivicWeb data source.
 Required class variables on child spiders:
     name (str): Spider name/slug
     agency (str): Full agency name for this board/commission
+    agency_name (str): Parent organization name
+
 """
 
 import json
@@ -24,8 +26,6 @@ from city_scrapers_core.constants import (
 from city_scrapers_core.items import Meeting
 from city_scrapers_core.spiders import CityScrapersSpider
 from dateutil.relativedelta import relativedelta
-
-START_DATE = "2019-01-01"
 
 
 class OmaSarpyBocMixinMeta(type):
@@ -52,7 +52,7 @@ class OmaSarpyBocMixinMeta(type):
 
 class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
     timezone = "America/Chicago"
-    agency_name = "Sarpy County Board of Commissioners"
+    start_date = "2019-01-01"
     source_url = "https://sarpy.civicweb.net/Portal/MeetingSchedule.aspx"
     meetings_api_url = (
         "https://sarpy.civicweb.net/Services/MeetingsService.svc/meetings"
@@ -72,7 +72,7 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         """Request meetings from 2019 through one year in the future."""
         today = date.today()
         params = {
-            "from": START_DATE,
+            "from": self.start_date,
             "to": (today + relativedelta(years=1)).isoformat(),
             "_": self._get_cache_busting_timestamp(),
         }
@@ -206,8 +206,6 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
 
     def _is_cancelled(self, documents):
         for doc in documents:
-            if not doc.get("IsPublic"):
-                continue
             searchable_text = " ".join(
                 [
                     str(doc.get("Html") or ""),
@@ -222,8 +220,6 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
     def _parse_document_links(self, documents):
         links = []
         for doc in documents:
-            if not doc.get("IsPublic"):
-                continue
             href = self._build_document_url(doc)
             if not href:
                 continue

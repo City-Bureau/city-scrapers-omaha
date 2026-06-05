@@ -1,10 +1,13 @@
 from city_scrapers.mixins.oma_sarpy_boc import OmaSarpyBocMixin
 
+AGENCY_NAME = "Sarpy County Board of Commissioners"
+
 spider_configs = [
     {
         "class_name": "OmaSarpyBocBoardMeetings",
         "name": "oma_sarpy_boc_board_meetings",
         "agency": "Sarpy County Board Meetings",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Board Meetings"],
         "name_excludes": ["Board Meetings."],
     },
@@ -12,54 +15,63 @@ spider_configs = [
         "class_name": "OmaSarpyBocBoardOfAdjustment",
         "name": "oma_sarpy_boc_board_of_adjustment",
         "agency": "Sarpy County Board of Adjustment",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Board of Adjustment"],
     },
     {
         "class_name": "OmaSarpyBocBoardOfCorrections",
         "name": "oma_sarpy_boc_board_of_corrections",
         "agency": "Sarpy County Board of Corrections",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Board of Corrections"],
     },
     {
         "class_name": "OmaSarpyBocBoardOfEqualization",
         "name": "oma_sarpy_boc_board_of_equalization",
         "agency": "Sarpy County Board of Equalization",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Board of Equalization"],
     },
     {
         "class_name": "OmaSarpyBocLeasingCorporation",
         "name": "oma_sarpy_boc_leasing_corporation",
         "agency": "Sarpy County Leasing Corporation",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Leasing Corporation"],
     },
     {
         "class_name": "OmaSarpyBocPersonnelPolicyBoard",
         "name": "oma_sarpy_boc_personnel_policy_board",
         "agency": "Sarpy County Personnel Policy Board",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Personnel Policy Board"],
     },
     {
         "class_name": "OmaSarpyBocPlanningCommission",
         "name": "oma_sarpy_boc_planning_commission",
         "agency": "Sarpy County Planning Commission",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Planning Commission"],
     },
     {
         "class_name": "OmaSarpyBocTriCountyRetreat",
         "name": "oma_sarpy_boc_tri_county_retreat",
         "agency": "Sarpy County Tri-County Retreat",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Tri-County Retreat"],
     },
     {
         "class_name": "OmaSarpyBocVeteransServiceCommittee",
         "name": "oma_sarpy_boc_veterans_service_committee",
         "agency": "Sarpy County Veterans Service Committee",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Veterans Service Committee"],
     },
     {
         "class_name": "OmaSarpyBocWastewaterAgency",
         "name": "oma_sarpy_boc_wastewater_agency",
         "agency": "Sarpy County Wastewater Agency",
+        "agency_name": AGENCY_NAME,
         "name_prefixes": ["Wastewater Agency"],
     },
 ]
