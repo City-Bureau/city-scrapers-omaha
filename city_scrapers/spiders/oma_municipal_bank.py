@@ -106,8 +106,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
             time_notes=response.meta["time_notes"],
             location=self.location_archived,
         )
-        if meeting:
-            yield meeting
+        yield meeting
 
     def _build_meeting(
         self, start, links, source, location, time_notes="", description="", end=None
@@ -128,7 +127,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         meeting["status"] = self._get_status(meeting)
         meeting["id"] = self._get_id(meeting)
         return meeting
-    
+
     def _parse_eventbrite_end(self, response, start):
         """Parse end time from Eventbrite datetime text."""
         if not start:
@@ -146,9 +145,7 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
             return None
 
         try:
-            return parse_date(
-                f"{start.strftime('%Y-%m-%d')} {match.group(1)}"
-            )
+            return parse_date(f"{start.strftime('%Y-%m-%d')} {match.group(1)}")
         except Exception:
             return None
 
