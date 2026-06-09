@@ -128,11 +128,6 @@ class OmaCityCouncilSpider(CityScrapersSpider):
             len(response.text),
         )
 
-        if response.status == 403:
-            self.logger.warning(
-                "Cityclerk homepage was blocked before cookies could be collected"
-            )
-
         attachment_pages = self._get_attachment_pages()
         self._pending_attachment_requests = len(attachment_pages)
 
@@ -237,11 +232,6 @@ class OmaCityCouncilSpider(CityScrapersSpider):
             response.status,
             len(response.text),
         )
-
-        if response.status == 403:
-            self.logger.warning(
-                "Citycouncil homepage was blocked before cookies could be collected"
-            )
 
         for url in self._iter_calendar_urls():
             yield scrapy.Request(
@@ -434,7 +424,7 @@ class OmaCityCouncilSpider(CityScrapersSpider):
         return NOT_CLASSIFIED
 
     def _parse_dt(self, content_html, href, start=True):
-        date_match = re.search(r"/(\d{4})/(\d{2})/(\d{2})/", href)
+        date_match = re.search(r"/(\d{4})/(\d{1,2})/(\d{1,2})/", href)
         if not date_match:
             return None
 
