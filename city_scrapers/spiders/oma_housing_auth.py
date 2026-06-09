@@ -1,12 +1,12 @@
 import re
 from collections import defaultdict
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from city_scrapers_core.constants import BOARD
 from city_scrapers_core.items import Meeting
 from city_scrapers_core.spiders import CityScrapersSpider
 from dateutil.parser import parse
-from datetime import datetime
 
 
 class OmaHousingAuthSpider(CityScrapersSpider):
@@ -21,9 +21,7 @@ class OmaHousingAuthSpider(CityScrapersSpider):
 
     custom_settings = {"ROBOTSTXT_OBEY": False}
 
-    SECONDARY_TIME_NOTES = (
-        "Please refer to the meeting attachments for more accurate meeting time and location."
-    )
+    SECONDARY_TIME_NOTES = "Please refer to the meeting attachments for more accurate meeting time and location."  # noqa
 
     tz = ZoneInfo(timezone)
 
@@ -38,14 +36,16 @@ class OmaHousingAuthSpider(CityScrapersSpider):
             start, has_explicit_time = self._parse_start(item)
             if not start or start.year < cutoff_year:
                 continue
-            raw_meetings.append({
-                "title": self._parse_title(item),
-                "start": start,
-                "has_explicit_time": has_explicit_time,
-                "location": self._parse_location(item),
-                "links": [],
-                "source": response.url,
-            })
+            raw_meetings.append(
+                {
+                    "title": self._parse_title(item),
+                    "start": start,
+                    "has_explicit_time": has_explicit_time,
+                    "location": self._parse_location(item),
+                    "links": [],
+                    "source": response.url,
+                }
+            )
 
         date_groups = defaultdict(list)
         for i, m in enumerate(raw_meetings):
@@ -88,15 +88,24 @@ class OmaHousingAuthSpider(CityScrapersSpider):
                 agenda_cell = tds[0] if tds else None
                 if not agenda_cell:
                     continue
-                agenda_text = self._clean_text(agenda_cell.xpath("string()").get() or "")
-                cancelled = "CANCELLED" in agenda_text.upper()           
+                agenda_text = self._clean_text(
+                    agenda_cell.xpath("string()").get() or ""
+                )
+                cancelled = "CANCELLED" in agenda_text.upper()
 
                 links = [
-                    {"href": a.attrib["href"], "title": self._clean_text(a.css("::text").get())}
+                    {
+                        "href": a.attrib["href"],
+                        "title": self._clean_text(a.css("::text").get()),
+                    }
                     for a in row.css("td a")
                     if a.attrib.get("href") and a.css("::text").get()
                 ]
-                secondary_by_date[date] = {"start": start, "links": links, "cancelled": cancelled}
+                secondary_by_date[date] = {
+                    "start": start,
+                    "links": links,
+                    "cancelled": cancelled,
+                }
 
         primary_dates = {m["start"].date() for m in self._raw_meetings}
 
@@ -132,7 +141,9 @@ class OmaHousingAuthSpider(CityScrapersSpider):
                 source=self.links_and_tentative_meetings_url,
             )
 
-    def _build_meeting(self, title, start, time_notes, location, links, source, cancelled=False):
+    def _build_meeting(
+        self, title, start, time_notes, location, links, source, cancelled=False
+    ):
         meeting = Meeting(
             title=title,
             description="",
@@ -145,7 +156,9 @@ class OmaHousingAuthSpider(CityScrapersSpider):
             links=links,
             source=source,
         )
-        meeting["status"] = self._get_status(meeting, text="cancelled" if cancelled else "")
+        meeting["status"] = self._get_status(
+            meeting, text="cancelled" if cancelled else ""
+        )
         meeting["id"] = self._get_id(meeting)
         return meeting
 
@@ -162,8 +175,11 @@ class OmaHousingAuthSpider(CityScrapersSpider):
         date_str = re.sub(r"[*@].*$", "", raw).strip()
 
         try:
-            dt = parse(f"{date_str} {time_match.group(1)}", fuzzy=True) if time_match \
+            dt = (
+                parse(f"{date_str} {time_match.group(1)}", fuzzy=True)
+                if time_match
                 else parse(date_str, fuzzy=True).replace(hour=0, minute=0, second=0)
+            )
             return dt.date(), dt
         except Exception:
             return None, None
@@ -193,8 +209,13 @@ class OmaHousingAuthSpider(CityScrapersSpider):
         location_td = item.css("td")[1]
         spans = [self._clean_text(t) for t in location_td.css("span::text").getall()]
         name = spans[0] if spans else ""
-        address = ", ".join(filter(None, [
-            spans[1] if len(spans) > 1 else "",
-            spans[2] if len(spans) > 2 else "",
-        ]))
+        address = ", ".join(
+            filter(
+                None,
+                [
+                    spans[1] if len(spans) > 1 else "",
+                    spans[2] if len(spans) > 2 else "",
+                ],
+            )
+        )
         return {"name": name, "address": address}

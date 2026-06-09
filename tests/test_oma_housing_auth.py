@@ -57,10 +57,21 @@ def test_primary_items(primary_items):
     assert item["start"] == datetime(2026, 6, 4, 8, 30)
     assert item["end"] is None
     assert item["all_day"] is False
-    assert item["location"] == {"name": "First Floor Boardroom", "address": "1823 Harney Street, Omaha, NE 68102"}
-    assert item["links"] == [{"href": "https://ohauthority.org/wp-content/uploads/2026/06/June-4-2026-OHA-Board-Mtg-Agenda.pdf", "title": "Agenda 06.04.2026"}]
+    assert item["location"] == {
+        "name": "First Floor Boardroom",
+        "address": "1823 Harney Street, Omaha, NE 68102",
+    }
+    assert item["links"] == [
+        {
+            "href": "https://ohauthority.org/wp-content/uploads/2026/06/June-4-2026-OHA-Board-Mtg-Agenda.pdf",  # noqa
+            "title": "Agenda 06.04.2026",
+        }
+    ]
     assert item["status"] == "passed"
-    assert item["id"] == "oma_housing_auth/202606040830/x/oha_regular_meeting_of_the_board_of_commissioners"
+    assert (
+        item["id"]
+        == "oma_housing_auth/202606040830/x/oha_regular_meeting_of_the_board_of_commissioners"  # noqa
+    )
 
     for item in primary_items:
         assert item["source"] == "https://meeting.sparqdata.com/Public/Organization/201"
@@ -77,9 +88,12 @@ def test_secondary_items(secondary_items):
         assert item["title"] == "Board of Commissioners"
         assert item["classification"] == BOARD
         assert item["location"] == {"name": "", "address": ""}
-        assert item["source"] == "https://ohauthority.org/about-oha/board-of-commissioners/board-meetings/"
+        assert (
+            item["source"]
+            == "https://ohauthority.org/about-oha/board-of-commissioners/board-meetings/"  # noqa
+        )
         assert item["time_notes"] == (
-            "Please refer to the meeting attachments for more accurate meeting time and location."
+            "Please refer to the meeting attachments for more accurate meeting time and location."  # noqa
         )
 
 
