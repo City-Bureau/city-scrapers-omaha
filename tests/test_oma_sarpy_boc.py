@@ -35,6 +35,10 @@ DOCS_URL = (
     "https://sarpy.civicweb.net/Services/MeetingsService.svc/meetings"
     "/4927/meetingDocuments?_=1234567890"
 )
+NO_MEETING_DOCS_URL = (
+    "https://sarpy.civicweb.net/Services/MeetingsService.svc/meetings"
+    "/5030/meetingDocuments?_=1234567890"
+)
 VIDEO_URL = "https://sarpy.civicweb.net/api/geteventwithindexpoints/4927?_=1234567890"
 
 
@@ -51,6 +55,14 @@ def docs_response():
     return file_response(
         join(dirname(__file__), "files", "oma_sarpy_boc_docs.json"),
         url=DOCS_URL,
+    )
+
+
+@pytest.fixture(scope="module")
+def no_meeting_docs_response():
+    return file_response(
+        join(dirname(__file__), "files", "oma_sarpy_boc_no_meeting_docs.json"),
+        url=NO_MEETING_DOCS_URL,
     )
 
 
@@ -263,8 +275,8 @@ def test_board_meetings_agenda_link(meetings_response, docs_response, video_resp
     agenda_links = [link for link in items[0]["links"] if link["title"] == "Agenda"]
     assert len(agenda_links) == 1
     assert agenda_links[0]["href"] == (
-        "https://sarpy.civicweb.net/document/321491"
-        "/Board%20Meetings%20-%20Jan%2009%202024.html"
+        "https://sarpy.civicweb.net/document/321492"
+        "/Board%20Meetings%20-%20Jan%2009%202024.pdf"
     )
 
 
@@ -279,8 +291,9 @@ def test_board_meetings_includes_all_documents(
         4927,
     )
     titles = [link["title"] for link in items[0]["links"]]
+    assert "Agenda" in titles
     assert "Minutes" in titles
-    assert "Document" in titles
+    assert "Document" not in titles
 
 
 def test_board_meetings_video_link(meetings_response, docs_response, video_response):
@@ -311,6 +324,27 @@ def test_board_meetings_links_deduplicated(
         key = (link["href"], link["title"])
         assert key not in seen
         seen.add(key)
+
+
+def test_no_meeting_fetches_attachments(
+    meetings_response, no_meeting_docs_response, video_response
+):
+    """NO MEETING meetings should still include document attachments."""
+    items = parse_final_items(
+        OmaSarpyBocBoardMeetings(),
+        meetings_response,
+        no_meeting_docs_response,
+        video_response,
+        5030,
+    )
+    assert len(items) == 1
+    assert items[0]["status"] == CANCELLED
+    minutes_links = [l for l in items[0]["links"] if l["title"] == "Minutes"]
+    assert len(minutes_links) == 1
+    assert minutes_links[0]["href"] == (
+        "https://sarpy.civicweb.net/document/330001"
+        "/Board%20Meetings%20-%20Dec%2031%202024.pdf"
+    )
 
 
 def test_board_meetings_id(meetings_response, docs_response, video_response):

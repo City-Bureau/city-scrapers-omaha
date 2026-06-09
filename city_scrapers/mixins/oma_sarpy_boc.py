@@ -112,15 +112,14 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
                 source=self._parse_source(item),
             )
 
-            if "NO MEETING" in name:
+            is_no_meeting = "NO MEETING" in name
+            if is_no_meeting:
                 meeting["status"] = CANCELLED
-                meeting["id"] = self._get_id(meeting)
-                yield meeting
-                continue
 
             meeting_id = item.get("Id")
             if not meeting_id:
-                meeting["status"] = self._get_status(meeting)
+                if not is_no_meeting:
+                    meeting["status"] = self._get_status(meeting)
                 meeting["id"] = self._get_id(meeting)
                 yield meeting
                 continue
@@ -133,14 +132,20 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
                 url=docs_url,
                 callback=self.parse_meeting_documents,
                 errback=self.errback_meeting_documents,
-                cb_kwargs={"meeting": meeting, "meeting_id": meeting_id},
+                cb_kwargs={
+                    "meeting": meeting,
+                    "meeting_id": meeting_id,
+                    "force_cancelled": is_no_meeting,
+                },
             )
 
-    def parse_meeting_documents(self, response, meeting, meeting_id):
+    def parse_meeting_documents(
+        self, response, meeting, meeting_id, force_cancelled=False
+    ):
         documents = response.json()
         meeting["links"].extend(self._parse_document_links(documents))
 
-        if self._is_cancelled(documents):
+        if force_cancelled or self._is_cancelled(documents):
             meeting["status"] = CANCELLED
         else:
             meeting["status"] = self._get_status(meeting)
@@ -166,7 +171,8 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
 
     def errback_meeting_documents(self, failure):
         meeting = failure.request.cb_kwargs["meeting"]
-        meeting["status"] = self._get_status(meeting)
+        if not failure.request.cb_kwargs.get("force_cancelled"):
+            meeting["status"] = self._get_status(meeting)
         meeting["id"] = self._get_id(meeting)
         yield meeting
 
@@ -218,19 +224,23 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         return False
 
     def _parse_document_links(self, documents):
-        links = []
+        groups = {"Agenda": [], "Minutes": []}
         for doc in documents:
             href = self._build_document_url(doc)
             if not href:
                 continue
-            doc_type = doc.get("DocumentType")
-            if doc_type in (1, 4):
-                label = "Agenda"
-            elif doc_type in (2, 10):
-                label = "Minutes"
-            else:
-                label = "Document"
-            links.append({"href": href, "title": label})
+            label = "Agenda" if doc.get("DocumentType") in (1, 4) else "Minutes"
+            is_pdf = not bool(doc.get("Html"))
+            groups[label].append({"href": href, "title": label, "is_pdf": is_pdf})
+
+        links = []
+        for label in ("Agenda", "Minutes"):
+            candidates = groups[label]
+            if not candidates:
+                continue
+            pdfs = [c for c in candidates if c["is_pdf"]]
+            chosen = pdfs[0] if pdfs else candidates[0]
+            links.append({"href": chosen["href"], "title": chosen["title"]})
         return links
 
     def _build_document_url(self, doc):
