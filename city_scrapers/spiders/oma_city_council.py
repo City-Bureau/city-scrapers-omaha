@@ -7,6 +7,18 @@ import scrapy
 from city_scrapers_core.constants import CITY_COUNCIL, NOT_CLASSIFIED
 from city_scrapers_core.items import Meeting
 from city_scrapers_core.spiders import CityScrapersSpider
+from curl_cffi import requests as cffi_requests
+from scrapy.http import HtmlResponse
+
+REAL_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+)
+
+# Akamai can block Scrapy/requests/Playwright based on TLS + HTTP/2 fingerprint.
+# curl-cffi with Chrome impersonation gives us a browser-like network fingerprint.
+IMPERSONATE = "chrome131"
+AKAMAI_TIMEOUT = 30
 
 
 class OmaCityCouncilSpider(CityScrapersSpider):
@@ -39,132 +51,237 @@ class OmaCityCouncilSpider(CityScrapersSpider):
     browser_headers = {
         "Accept": (
             "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "image/avif,image/webp,image/apng,*/*;q=0.8,"
-            "application/signed-exchange;v=b3;q=0.7"
+            "image/avif,image/webp,image/apng,*/*;q=0.8"
         ),
         "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
         "Cache-Control": "max-age=0",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "same-origin",
         "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
-        "User-Agent": (
-            "Mozilla/5.0 (X11; Linux aarch64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/148.0.0.0 Safari/537.36 CrKey/1.54.250320"
-        ),
+        "User-Agent": REAL_UA,
     }
 
     clerk_headers = {
         **browser_headers,
-        "Referer": "https://cityclerk.cityofomaha.org/",
+        "Referer": clerk_home_url,
     }
 
     council_headers = {
         **browser_headers,
-        "Referer": "https://citycouncil.cityofomaha.org/",
+        "Referer": council_home_url,
     }
 
     custom_settings = {
-        "DOWNLOAD_HANDLERS": {
-            "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-            "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
-        },
-        "PLAYWRIGHT_BROWSER_TYPE": "chromium",
-        "PLAYWRIGHT_LAUNCH_OPTIONS": {
-            "headless": False,
-            "args": ["--disable-blink-features=AutomationControlled"],
-        },
-        "PLAYWRIGHT_PROCESS_REQUEST_HEADERS": None,
-        "PLAYWRIGHT_CONTEXTS": {
-            "clerk": {
-                "user_agent": (
-                    "Mozilla/5.0 (X11; Linux aarch64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/148.0.0.0 Safari/537.36 CrKey/1.54.250320"
-                ),
-            },
-            "council": {
-                "user_agent": (
-                    "Mozilla/5.0 (X11; Linux aarch64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/148.0.0.0 Safari/537.36 CrKey/1.54.250320"
-                ),
-            },
-        },
-        "CONCURRENT_REQUESTS": 1,
-        "DOWNLOAD_DELAY": 2,
+        "USER_AGENT": REAL_UA,
         "COOKIES_ENABLED": True,
         "ROBOTSTXT_OBEY": False,
-        "USER_AGENT": (
-            "Mozilla/5.0 (X11; Linux aarch64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/148.0.0.0 Safari/537.36 CrKey/1.54.250320"
-        ),
+        "FEED_EXPORT_ENCODING": "utf-8",
+        "DOWNLOAD_DELAY": 1,
+        "AUTOTHROTTLE_ENABLED": True,
+        "CONCURRENT_REQUESTS": 1,
+        "CONCURRENT_REQUESTS_PER_DOMAIN": 1,
     }
 
     def __init__(self, *args, **kwargs):
         self.links_by_date = {}
-        self._pending_attachment_requests = 0
-        self._calendar_started = False
         self._seen_meetings_by_date = {}
+
+        # Keep separate sessions so cookies do not get mixed between domains.
+        self._akamai_sessions = {}
+
         super().__init__(*args, **kwargs)
 
     async def start(self):
+        """Kick off the spider with a normal Scrapy request.
+
+        The real protected pages are fetched inside _run_crawl() using curl-cffi.
+        This avoids relying on Scrapy/Playwright for Akamai-sensitive pages.
+        """
         yield scrapy.Request(
             self.clerk_home_url,
-            callback=self._prime_clerk_session,
-            errback=self._prime_clerk_errback,
+            callback=self._run_crawl,
+            errback=self._run_crawl_errback,
             headers=self.clerk_headers,
-            meta={"playwright": True, "playwright_context": "clerk"},
+            meta={"handle_httpstatus_all": True},
             dont_filter=True,
         )
 
-    def _prime_clerk_session(self, response):
+    def _run_crawl(self, response):
         self.logger.info(
-            "Primed cityclerk session: status=%s len=%s",
+            "Starting curl-cffi crawl after initial response: status=%s url=%s",
             response.status,
-            len(response.text),
+            response.url,
         )
 
-        attachment_pages = self._get_attachment_pages()
-        self._pending_attachment_requests = len(attachment_pages)
+        self._collect_attachment_links()
+        yield from self._fetch_calendar_pages()
 
-        for url, link_title in attachment_pages:
-            yield scrapy.Request(
-                url,
-                callback=self.parse_links,
-                errback=self._aux_errback,
-                cb_kwargs={"link_title": link_title},
-                headers=self.clerk_headers,
-                meta={"playwright": True, "playwright_context": "clerk"},
-                dont_filter=True,
-            )
-
-    def _prime_clerk_errback(self, failure):
+    def _run_crawl_errback(self, failure):
         self.logger.warning(
-            "Could not prime cityclerk session: %s", failure.request.url
+            "Initial Scrapy request failed, continuing with curl-cffi: %s",
+            failure.request.url,
         )
 
-        attachment_pages = self._get_attachment_pages()
-        self._pending_attachment_requests = len(attachment_pages)
+        self._collect_attachment_links()
+        yield from self._fetch_calendar_pages()
 
-        for url, link_title in attachment_pages:
-            yield scrapy.Request(
+    def _akamai_get(self, url, headers=None, session_name="default"):
+        """GET an Akamai-protected URL with curl-cffi Chrome impersonation.
+
+        Returns a Scrapy HtmlResponse so existing .css()/.xpath() parsing can
+        stay the same.
+        """
+        session = self._akamai_sessions.setdefault(
+            session_name,
+            cffi_requests.Session(),
+        )
+
+        request_headers = {
+            **(headers or {}),
+            "User-Agent": REAL_UA,
+        }
+
+        try:
+            response = session.get(
                 url,
-                callback=self.parse_links,
-                errback=self._aux_errback,
-                cb_kwargs={"link_title": link_title},
+                impersonate=IMPERSONATE,
+                timeout=AKAMAI_TIMEOUT,
+                headers=request_headers,
+            )
+        except Exception as e:
+            self.logger.warning("Akamai fetch error for %s: %s", url, e)
+            return None
+
+        if response.status_code != 200:
+            self.logger.warning(
+                "Akamai fetch returned %s for %s",
+                response.status_code,
+                url,
+            )
+            return None
+
+        body = response.content
+        text_preview = body[:1000].decode("utf-8", errors="ignore").lower()
+        if "access denied" in text_preview or "akamai" in text_preview:
+            self.logger.warning("Possible Akamai block page for %s", url)
+
+        return HtmlResponse(
+            url=str(response.url),
+            status=response.status_code,
+            body=body,
+            encoding="utf-8",
+        )
+
+    def _collect_attachment_links(self):
+        """Fetch agenda, journal, and video pages through curl-cffi.
+
+        This replaces the old Playwright-driven auxiliary page flow.
+        """
+        for url, link_title in self._get_attachment_pages():
+            self._fetch_attachment_page(url, link_title)
+
+    def _fetch_attachment_page(self, url, link_title):
+        current_url = url
+
+        while current_url:
+            response = self._akamai_get(
+                current_url,
                 headers=self.clerk_headers,
-                meta={"playwright": True, "playwright_context": "clerk"},
-                dont_filter=True,
+                session_name="clerk",
+            )
+            if response is None:
+                self.logger.warning(
+                    "Could not fetch %s attachment page: %s",
+                    link_title,
+                    current_url,
+                )
+                return
+
+            next_url = None
+            for result in self.parse_links(response, link_title):
+                if isinstance(result, scrapy.Request):
+                    next_url = result.url
+
+            current_url = next_url
+
+    def _fetch_calendar_pages(self):
+        """Fetch calendar listing pages and detail pages through curl-cffi."""
+        council_home_response = self._akamai_get(
+            self.council_home_url,
+            headers=self.council_headers,
+            session_name="council",
+        )
+
+        if council_home_response is None:
+            self.logger.warning(
+                "Could not prime citycouncil session; trying calendar pages anyway"
+            )
+        else:
+            self.logger.info(
+                "Primed citycouncil session: status=%s len=%s",
+                council_home_response.status,
+                len(council_home_response.text),
             )
 
-    def _aux_errback(self, failure):
-        self.logger.warning("Could not fetch auxiliary page: %s", failure.request.url)
-        self._pending_attachment_requests -= 1
-        yield from self._start_calendar()
+        for url in self._iter_calendar_urls():
+            yield from self._fetch_calendar_page(url)
+
+    def _fetch_calendar_page(self, url):
+        response = self._akamai_get(
+            url,
+            headers=self.council_headers,
+            session_name="council",
+        )
+        if response is None:
+            self.logger.warning("Could not fetch calendar page: %s", url)
+            return
+
+        for result in self.parse(response):
+            if not isinstance(result, scrapy.Request):
+                yield result
+                continue
+
+            detail_response = self._akamai_get(
+                result.url,
+                headers=self.council_headers,
+                session_name="council",
+            )
+            if detail_response is None:
+                self.logger.warning("Could not fetch detail page: %s", result.url)
+                continue
+
+            yield from self.parse_detail(
+                detail_response,
+                **result.cb_kwargs,
+            )
+
+    def _iter_years(self):
+        now = datetime.now()
+        for year in range(
+            now.year - self.past_year_range,
+            now.year + self.future_year_range + 1,
+        ):
+            yield year
+
+    def _iter_calendar_urls(self):
+        now = datetime.now()
+        for year in range(
+            now.year - self.past_year_range,
+            now.year + self.future_year_range + 1,
+        ):
+            for month in range(1, 13):
+                yield self.calendar_url_template.format(year=year, month=month)
+
+    def _get_attachment_pages(self):
+        pages = []
+        for year in self._iter_years():
+            pages.append((self.agenda_url_template.format(year=year), "Agenda"))
+            pages.append((self.journal_url_template.format(year=year), "Journal"))
+        pages.append((self.video_url, "Video"))
+        return pages
 
     def parse_links(self, response, link_title):
         self.logger.info(
@@ -173,10 +290,13 @@ class OmaCityCouncilSpider(CityScrapersSpider):
             response.status,
             len(response.text),
         )
+
         if "Access Denied" in response.text or "akamai" in response.text.lower():
             self.logger.warning("Possible block on %s (%s)", link_title, response.url)
+
         posts = response.css("article.hentry, div.hentry")
         self.logger.info("parse_links %s: found %s posts", link_title, len(posts))
+
         for post in posts:
             date_text = post.css(".entry-title a::text").get("").strip()
 
@@ -200,84 +320,10 @@ class OmaCityCouncilSpider(CityScrapersSpider):
             yield scrapy.Request(
                 next_page,
                 callback=self.parse_links,
-                errback=self._aux_errback,
                 cb_kwargs={"link_title": link_title},
                 headers=self.clerk_headers,
-                meta={"playwright": True, "playwright_context": "clerk"},
                 dont_filter=True,
             )
-            return
-
-        self._pending_attachment_requests -= 1
-        yield from self._start_calendar()
-
-    def _start_calendar(self):
-        if self._pending_attachment_requests > 0 or self._calendar_started:
-            return
-
-        self._calendar_started = True
-
-        yield scrapy.Request(
-            self.council_home_url,
-            callback=self._prime_council_session,
-            errback=self._prime_council_errback,
-            headers=self.council_headers,
-            meta={"playwright": True, "playwright_context": "council"},
-            dont_filter=True,
-        )
-
-    def _prime_council_session(self, response):
-        self.logger.info(
-            "Primed citycouncil session: status=%s len=%s",
-            response.status,
-            len(response.text),
-        )
-
-        for url in self._iter_calendar_urls():
-            yield scrapy.Request(
-                url,
-                callback=self.parse,
-                headers=self.council_headers,
-                meta={"playwright": True, "playwright_context": "council"},
-                dont_filter=True,
-            )
-
-    def _prime_council_errback(self, failure):
-        self.logger.warning(
-            "Could not prime citycouncil session: %s", failure.request.url
-        )
-
-        for url in self._iter_calendar_urls():
-            yield scrapy.Request(
-                url,
-                callback=self.parse,
-                headers=self.council_headers,
-                meta={"playwright": True, "playwright_context": "council"},
-                dont_filter=True,
-            )
-
-    def _iter_years(self):
-        now = datetime.now()
-        for year in range(
-            now.year - self.past_year_range, now.year + self.future_year_range + 1
-        ):
-            yield year
-
-    def _iter_calendar_urls(self):
-        now = datetime.now()
-        for year in range(
-            now.year - self.past_year_range, now.year + self.future_year_range + 1
-        ):
-            for month in range(1, 13):
-                yield self.calendar_url_template.format(year=year, month=month)
-
-    def _get_attachment_pages(self):
-        pages = []
-        for year in self._iter_years():
-            pages.append((self.agenda_url_template.format(year=year), "Agenda"))
-            pages.append((self.journal_url_template.format(year=year), "Journal"))
-        pages.append((self.video_url, "Video"))
-        return pages
 
     def _parse_next_page(self, response):
         next_page = response.xpath(
@@ -335,7 +381,6 @@ class OmaCityCouncilSpider(CityScrapersSpider):
                 continue
 
             date_key = start.date()
-
             self._seen_meetings_by_date.setdefault(date_key, set()).add(title)
 
             links = self._sort_links(self.links_by_date.get(date_key, []))
@@ -344,8 +389,6 @@ class OmaCityCouncilSpider(CityScrapersSpider):
             yield scrapy.Request(
                 detail_url,
                 callback=self.parse_detail,
-                headers=self.council_headers,
-                meta={"playwright": True, "playwright_context": "council"},
                 cb_kwargs={
                     "title": title,
                     "start": start,

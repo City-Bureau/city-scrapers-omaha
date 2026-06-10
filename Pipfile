@@ -11,6 +11,7 @@ scrapy-wayback-middleware = "*"
 python-dateutil = "*"
 importlib-resources = "*"
 scrapy-playwright = "*"
+curl-cffi = "*"
 
 [dev-packages]
 freezegun = "*"
