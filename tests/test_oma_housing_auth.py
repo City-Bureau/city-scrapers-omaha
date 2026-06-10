@@ -21,8 +21,11 @@ def parsed_items():
         url="https://ohauthority.org/about-oha/board-of-commissioners/board-meetings/",
     )
     with freeze_time("2026-06-07"):
-        list(spider.parse(primary_response))
-        return list(spider._links_and_tentative_meetings_page(secondary_response))
+        requests = list(spider.parse(primary_response))
+        raw_meetings = requests[0].cb_kwargs["raw_meetings"]
+        return list(
+            spider._links_and_tentative_meetings_page(secondary_response, raw_meetings)
+        )
 
 
 @pytest.fixture(scope="module")

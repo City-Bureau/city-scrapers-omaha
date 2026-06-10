@@ -68,13 +68,18 @@ class OmaHousingAuthSpider(CityScrapersSpider):
                             second=shared_time.second,
                         )
 
-        self._raw_meetings = raw_meetings
+        # self._raw_meetings = raw_meetings
+        # yield response.follow(
+        #     self.links_and_tentative_meetings_url,
+        #     callback=self._links_and_tentative_meetings_page,
+        # )
         yield response.follow(
             self.links_and_tentative_meetings_url,
             callback=self._links_and_tentative_meetings_page,
+            cb_kwargs={"raw_meetings": raw_meetings},
         )
 
-    def _links_and_tentative_meetings_page(self, response):
+    def _links_and_tentative_meetings_page(self, response, raw_meetings):
         cutoff_year = datetime.now(self.tz).year - 2
         secondary_by_date = {}
 
@@ -107,17 +112,17 @@ class OmaHousingAuthSpider(CityScrapersSpider):
                     "cancelled": cancelled,
                 }
 
-        primary_dates = {m["start"].date() for m in self._raw_meetings}
+        primary_dates = {m["start"].date() for m in raw_meetings}
 
         # Enrich primary meetings with links from secondary
-        for m in self._raw_meetings:
+        for m in raw_meetings:
             if m["start"].date() in secondary_by_date:
                 m["links"] = secondary_by_date[m["start"].date()]["links"]
                 m["cancelled"] = secondary_by_date[m["start"].date()]["cancelled"]
             else:
                 m["cancelled"] = False
 
-        for m in self._raw_meetings:
+        for m in raw_meetings:
             yield self._build_meeting(
                 title=m["title"],
                 start=m["start"],
@@ -185,14 +190,20 @@ class OmaHousingAuthSpider(CityScrapersSpider):
             return None, None
 
     def _parse_title(self, item):
-        text = item.css("td")[0].css("div").xpath("string()").get()
+        tds = item.css("td")
+        if not tds:
+            return ""
+        text = tds[0].css("div").xpath("string()").get()
         if not text:
             return ""
         text = text.strip()
         return text.split(" - ", 1)[1].strip() if " - " in text else text
 
     def _parse_start(self, item):
-        text = item.css("td")[0].css("div").xpath("string()").get()
+        tds = item.css("td")
+        if not tds:
+            return None, False
+        text = tds[0].css("div").xpath("string()").get()
         if not text:
             return None, False
         text = text.strip()
@@ -206,16 +217,15 @@ class OmaHousingAuthSpider(CityScrapersSpider):
         return None, False
 
     def _parse_location(self, item):
-        location_td = item.css("td")[1]
-        spans = [self._clean_text(t) for t in location_td.css("span::text").getall()]
+        tds = item.css("td")
+        if len(tds) < 2:
+            return {"name": "", "address": ""}
+        location_td = tds[1]
+        spans = [
+            self._clean_text(t)
+            for t in location_td.css("span::text").getall()
+            if self._clean_text(t) not in ("", "[", "]")
+        ]
         name = spans[0] if spans else ""
-        address = ", ".join(
-            filter(
-                None,
-                [
-                    spans[1] if len(spans) > 1 else "",
-                    spans[2] if len(spans) > 2 else "",
-                ],
-            )
-        )
+        address = ", ".join(spans[1:])
         return {"name": name, "address": address}
