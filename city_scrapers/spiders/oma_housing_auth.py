@@ -68,11 +68,6 @@ class OmaHousingAuthSpider(CityScrapersSpider):
                             second=shared_time.second,
                         )
 
-        # self._raw_meetings = raw_meetings
-        # yield response.follow(
-        #     self.links_and_tentative_meetings_url,
-        #     callback=self._links_and_tentative_meetings_page,
-        # )
         yield response.follow(
             self.links_and_tentative_meetings_url,
             callback=self._links_and_tentative_meetings_page,
@@ -96,7 +91,7 @@ class OmaHousingAuthSpider(CityScrapersSpider):
                 agenda_text = self._clean_text(
                     agenda_cell.xpath("string()").get() or ""
                 )
-                cancelled = "CANCELLED" in agenda_text.upper()
+                cancelled = bool(re.search(r"CANCELL?ED", agenda_text.upper()))
 
                 links = [
                     {
@@ -106,9 +101,16 @@ class OmaHousingAuthSpider(CityScrapersSpider):
                     for a in row.css("td a")
                     if a.attrib.get("href") and a.css("::text").get()
                 ]
+
+                # Split links by type
+                annual_links = [l for l in links if "annual" in l["title"].lower()]
+                regular_links = [l for l in links if "annual" not in l["title"].lower()]
+
                 secondary_by_date[date] = {
                     "start": start,
                     "links": links,
+                    "annual_links": annual_links,
+                    "regular_links": regular_links,
                     "cancelled": cancelled,
                 }
 
@@ -117,8 +119,12 @@ class OmaHousingAuthSpider(CityScrapersSpider):
         # Enrich primary meetings with links from secondary
         for m in raw_meetings:
             if m["start"].date() in secondary_by_date:
-                m["links"] = secondary_by_date[m["start"].date()]["links"]
-                m["cancelled"] = secondary_by_date[m["start"].date()]["cancelled"]
+                data = secondary_by_date[m["start"].date()]
+                m["cancelled"] = data["cancelled"]
+                if "annual" in m["title"].lower():
+                    m["links"] = data["annual_links"]
+                else:
+                    m["links"] = data["regular_links"]
             else:
                 m["cancelled"] = False
 
