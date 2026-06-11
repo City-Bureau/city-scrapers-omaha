@@ -12,8 +12,7 @@ Required class variables on child spiders:
 import json
 import re
 from datetime import date, datetime, timezone
-from html import unescape
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 import scrapy
 from city_scrapers_core.constants import (
@@ -58,6 +57,7 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         "https://sarpy.civicweb.net/Services/MeetingsService.svc/meetings"
     )
     video_api_url = "https://sarpy.civicweb.net/api/geteventwithindexpoints"
+    pdf_url = "https://sarpy.civicweb.net/document/{attachment_id}?printPdf=true"
 
     custom_settings = {"ROBOTSTXT_OBEY": False}
     meeting_info_url = (
@@ -224,38 +224,29 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         return False
 
     def _parse_document_links(self, documents):
-        groups = {"Agenda": [], "Minutes": []}
+        links = []
         for doc in documents:
             href = self._build_document_url(doc)
             if not href:
                 continue
-            label = "Agenda" if doc.get("DocumentType") in (1, 4) else "Minutes"
-            is_pdf = not bool(doc.get("Html"))
-            groups[label].append({"href": href, "title": label, "is_pdf": is_pdf})
-
-        links = []
-        for label in ("Agenda", "Minutes"):
-            candidates = groups[label]
-            if not candidates:
-                continue
-            pdfs = [c for c in candidates if c["is_pdf"]]
-            chosen = pdfs[0] if pdfs else candidates[0]
-            links.append({"href": chosen["href"], "title": chosen["title"]})
+            label = self._get_document_label(doc)
+            links.append({"href": href, "title": label})
         return links
+
+    def _get_document_label(self, doc):
+        doc_type = doc.get("Type")
+        is_html = doc.get("Html")
+        if doc_type == 1:
+            return "Agenda" if is_html else "Agenda Packet"
+        if doc_type == 2:
+            return "Minutes" if is_html else "Minutes Packet"
+        return doc.get("Name") or "Document"
 
     def _build_document_url(self, doc):
         doc_id = doc.get("Id")
-        name = (doc.get("Name") or "").strip()
         if not doc_id:
             return None
-        if name:
-            encoded_name = quote(unescape(name), safe="")
-            if doc.get("Html"):
-                return (
-                    f"https://sarpy.civicweb.net/document/{doc_id}/{encoded_name}.html"
-                )
-            return f"https://sarpy.civicweb.net/document/{doc_id}/{encoded_name}.pdf"
-        return f"https://sarpy.civicweb.net/document/{doc_id}/"
+        return self.pdf_url.format(attachment_id=doc_id)
 
     def _dedupe_links(self, links):
         seen = set()

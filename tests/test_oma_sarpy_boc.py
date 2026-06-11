@@ -275,8 +275,7 @@ def test_board_meetings_agenda_link(meetings_response, docs_response, video_resp
     agenda_links = [link for link in items[0]["links"] if link["title"] == "Agenda"]
     assert len(agenda_links) == 1
     assert agenda_links[0]["href"] == (
-        "https://sarpy.civicweb.net/document/321492"
-        "/Board%20Meetings%20-%20Jan%2009%202024.pdf"
+        "https://sarpy.civicweb.net/document/321491?printPdf=true"
     )
 
 
@@ -292,7 +291,9 @@ def test_board_meetings_includes_all_documents(
     )
     titles = [link["title"] for link in items[0]["links"]]
     assert "Agenda" in titles
+    assert "Agenda Packet" in titles
     assert "Minutes" in titles
+    assert "Minutes Packet" in titles
     assert "Document" not in titles
 
 
@@ -339,11 +340,10 @@ def test_no_meeting_fetches_attachments(
     )
     assert len(items) == 1
     assert items[0]["status"] == CANCELLED
-    minutes_links = [l for l in items[0]["links"] if l["title"] == "Minutes"]
+    minutes_links = [l for l in items[0]["links"] if l["title"] == "Minutes Packet"]
     assert len(minutes_links) == 1
     assert minutes_links[0]["href"] == (
-        "https://sarpy.civicweb.net/document/330001"
-        "/Board%20Meetings%20-%20Dec%2031%202024.pdf"
+        "https://sarpy.civicweb.net/document/330001?printPdf=true"
     )
 
 
