@@ -59,7 +59,7 @@ def city_council_meeting_with_agenda():
         join(dirname(__file__), "files", "oma_city_council_agendas.html"),
         url="https://cityclerk.cityofomaha.org/category/city-council-downloads/agendas/2024-agendas/",  # noqa
     )
-    list(spider_with_links.parse_links(agendas_response, link_title="Agenda"))
+    spider_with_links.parse_links(agendas_response, link_title="Agenda")
 
     links = spider_with_links._sort_links(
         spider_with_links.links_by_date.get(date(2024, 5, 21), [])
@@ -162,6 +162,77 @@ def test_pre_council_meeting_source(pre_council_meeting):
 
 def test_pre_council_meeting_all_day(pre_council_meeting):
     assert pre_council_meeting["all_day"] is False
+
+
+@pytest.fixture
+def calendar_requests(spider):
+    response = file_response(
+        join(dirname(__file__), "files", "oma_city_council_calendar.html"),
+        url="https://citycouncil.cityofomaha.org/council-calender/month.calendar/2024/05/01/73",  # noqa
+    )
+    with freeze_time("2026-06-10"):
+        return list(spider.parse(response))
+
+
+def test_calendar_request_count(calendar_requests):
+    assert len(calendar_requests) == 2
+
+
+def test_calendar_city_council_start(calendar_requests):
+    req = next(
+        r for r in calendar_requests if r.cb_kwargs["title"] == "City Council Meeting"
+    )
+    assert req.cb_kwargs["start"] == datetime(2024, 5, 21, 14, 0)
+
+
+def test_calendar_city_council_end(calendar_requests):
+    req = next(
+        r for r in calendar_requests if r.cb_kwargs["title"] == "City Council Meeting"
+    )
+    assert req.cb_kwargs["end"] == datetime(2024, 5, 21, 17, 0)
+
+
+def test_calendar_pre_council_start(calendar_requests):
+    req = next(
+        r for r in calendar_requests if r.cb_kwargs["title"] == "Pre-Council Meeting"
+    )
+    assert req.cb_kwargs["start"] == datetime(2024, 5, 21, 10, 30)
+
+
+def test_calendar_pre_council_end(calendar_requests):
+    req = next(
+        r for r in calendar_requests if r.cb_kwargs["title"] == "Pre-Council Meeting"
+    )
+    assert req.cb_kwargs["end"] == datetime(2024, 5, 21, 11, 0)
+
+
+def test_calendar_pre_council_links_empty(calendar_requests):
+    req = next(
+        r for r in calendar_requests if r.cb_kwargs["title"] == "Pre-Council Meeting"
+    )
+    assert req.cb_kwargs["links"] == []
+
+
+def test_parse_dt_start(spider):
+    assert spider._parse_dt(
+        "2:00pm - 5:00pm", "/2024/5/21/853/", start=True
+    ) == datetime(2024, 5, 21, 14, 0)
+
+
+def test_parse_dt_end(spider):
+    assert spider._parse_dt(
+        "2:00pm - 5:00pm", "/2024/5/21/853/", start=False
+    ) == datetime(2024, 5, 21, 17, 0)
+
+
+def test_parse_dt_single_digit_month_day(spider):
+    assert spider._parse_dt("10:30am", "/2024/5/7/853/", start=True) == datetime(
+        2024, 5, 7, 10, 30
+    )
+
+
+def test_parse_dt_no_end_without_range(spider):
+    assert spider._parse_dt("2:00pm", "/2024/5/21/853/", start=False) is None
 
 
 def test_city_council_meeting_agenda_link(city_council_meeting_with_agenda):

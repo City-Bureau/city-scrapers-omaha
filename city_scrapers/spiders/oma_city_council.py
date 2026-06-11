@@ -12,7 +12,7 @@ from scrapy.http import HtmlResponse
 
 REAL_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
 
 # Akamai can block Scrapy/requests/Playwright based on TLS + HTTP/2 fingerprint.
@@ -200,12 +200,8 @@ class OmaCityCouncilSpider(CityScrapersSpider):
                 )
                 return
 
-            next_url = None
-            for result in self.parse_links(response, link_title):
-                if isinstance(result, scrapy.Request):
-                    next_url = result.url
-
-            current_url = next_url
+            self.parse_links(response, link_title)
+            current_url = self._parse_next_page(response)
 
     def _fetch_calendar_pages(self):
         """Fetch calendar listing pages and detail pages through curl-cffi."""
@@ -314,17 +310,6 @@ class OmaCityCouncilSpider(CityScrapersSpider):
                 if link_obj not in date_links:
                     date_links.append(link_obj)
 
-        next_page = self._parse_next_page(response)
-        if next_page:
-            self.logger.info("Following %s pagination: %s", link_title, next_page)
-            yield scrapy.Request(
-                next_page,
-                callback=self.parse_links,
-                cb_kwargs={"link_title": link_title},
-                headers=self.clerk_headers,
-                dont_filter=True,
-            )
-
     def _parse_next_page(self, response):
         next_page = response.xpath(
             "//div[contains(@class, 'navigation')]"
@@ -383,7 +368,11 @@ class OmaCityCouncilSpider(CityScrapersSpider):
             date_key = start.date()
             self._seen_meetings_by_date.setdefault(date_key, set()).add(title)
 
-            links = self._sort_links(self.links_by_date.get(date_key, []))
+            links = (
+                self._sort_links(self.links_by_date.get(date_key, []))
+                if title == "City Council Meeting"
+                else []
+            )
             detail_url = response.urljoin(link)
 
             yield scrapy.Request(
