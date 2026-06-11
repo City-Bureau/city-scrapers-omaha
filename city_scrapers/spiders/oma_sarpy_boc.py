@@ -1,6 +1,5 @@
 from city_scrapers.mixins.oma_sarpy_boc import OmaSarpyBocMixin
 
-
 spider_configs = [
     {
         "class_name": "OmaSarpyBocBoardMeetings",
