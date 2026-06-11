@@ -193,6 +193,7 @@ class OmaHousingAuthSpider(CityScrapersSpider):
             )
             return dt.date(), dt
         except Exception:
+            self.logger.warning(f"Failed to parse date/time from: {raw}")
             return None, None
 
     def _parse_title(self, item):
@@ -220,6 +221,7 @@ class OmaHousingAuthSpider(CityScrapersSpider):
             if time_match:
                 return parse(f"{date_str} {time_match.group(1)}"), True
             return parse(f"{date_str} 12:00 AM"), False
+        self.logger.warning("Could not parse start date from: %r", text)
         return None, False
 
     def _parse_location(self, item):
