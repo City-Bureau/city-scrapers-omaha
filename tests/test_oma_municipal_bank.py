@@ -121,7 +121,7 @@ def test_tentative_identity(tentative_june):
     assert tentative_june["classification"] == BOARD
     assert tentative_june["status"] == TENTATIVE
     assert tentative_june["start"] == datetime(2026, 6, 10, 8, 30)
-    assert tentative_june["end"] is None
+    assert tentative_june["end"] == datetime(2026, 6, 10, 11, 00)
     assert tentative_june["all_day"] is False
     assert tentative_june["location"] == LOCATION
     assert tentative_june["source"] == EVENTBRITE_JUNE_URL

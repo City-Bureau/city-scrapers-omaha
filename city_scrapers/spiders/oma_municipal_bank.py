@@ -1,3 +1,4 @@
+import re
 from zoneinfo import ZoneInfo
 
 import scrapy
@@ -11,11 +12,11 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
     name = "oma_municipal_bank"
     agency = "Omaha Municipal Land Bank"
     timezone = "America/Chicago"
-    start_url = "https://omahalandbank.org/get-involved/board-meetings/"
+    start_urls = ["https://omahalandbank.org/get-involved/board-meetings/"]
     custom_settings = {
         "FEED_EXPORT_ENCODING": "utf-8",
     }
-    location = {
+    location_archived = {
         "name": (
             "Metropolitan Community College - "
             "Fort Omaha Campus - Mule Barn Building 21 - Room 112"
@@ -24,9 +25,6 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
     }
 
     tz = ZoneInfo(timezone)
-
-    def start_requests(self):
-        yield scrapy.Request(self.start_url, callback=self.parse)
 
     def parse(self, response):
         """Parse all meetings: tentative (follow Eventbrite) and archived (follow detail)."""  # noqa
@@ -58,12 +56,14 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
 
     def _parse_tentative_detail(self, response):
         """Parse start time and description from Eventbrite detail page."""
+        location = self._parse_eventbrite_location(response)
         dt_attr = response.css("time[datetime]::attr(datetime)").get("")
         start = (
             self._parse_dt(dt_attr)
             if dt_attr
             else self._parse_dt(f"{response.meta['date_text']}")
         )
+        end = self._parse_eventbrite_end(response, start)
         description = " ".join(
             t.strip()
             for t in response.css("[class*='Overview_summary'] *::text").getall()
@@ -72,9 +72,11 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         if start:
             meeting = self._build_meeting(
                 start=start,
+                end=end,
                 links=[],
                 source=response.meta["source"],
                 description=description,
+                location=location,
             )
             if meeting:
                 yield meeting
@@ -100,22 +102,24 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         meeting = self._build_meeting(
             start=response.meta["start"],
             links=links,
-            source=self.start_url,
+            source=self.start_urls[0],
             time_notes=response.meta["time_notes"],
+            location=self.location_archived,
         )
-        if meeting:
-            yield meeting
+        yield meeting
 
-    def _build_meeting(self, start, links, source, time_notes="", description=""):
+    def _build_meeting(
+        self, start, links, source, location, time_notes="", description="", end=None
+    ):
         meeting = Meeting(
             title="Board Meeting",
             description=description,
             classification=BOARD,
             start=start,
-            end=None,
+            end=end,
             all_day=False,
             time_notes=time_notes,
-            location=self.location,
+            location=location,
             links=links,
             source=source,
         )
@@ -123,6 +127,42 @@ class OmaMunicipalBankSpider(CityScrapersSpider):
         meeting["status"] = self._get_status(meeting)
         meeting["id"] = self._get_id(meeting)
         return meeting
+
+    def _parse_eventbrite_end(self, response, start):
+        """Parse end time from Eventbrite datetime text."""
+        if not start:
+            return None
+
+        text = response.css("time::text").get("")
+
+        match = re.search(
+            r"\b\d{1,2}:\d{2}\s*[AP]M\s*-\s*([\d: ]+[AP]M)",
+            text,
+            re.I,
+        )
+
+        if not match:
+            return None
+
+        try:
+            return parse_date(f"{start.strftime('%Y-%m-%d')} {match.group(1)}")
+        except Exception:
+            return None
+
+    def _parse_eventbrite_location(self, response):
+        """Parse location from Eventbrite page."""
+        location = response.css("div.InPersonLocation_address__JgNGk address")
+
+        name = location.css("h3::text").get("").strip()
+
+        address = ", ".join(
+            p.strip() for p in location.css("p::text").getall() if p.strip()
+        )
+
+        return {
+            "name": name,
+            "address": address,
+        }
 
     def _parse_time_notes(self, response):
         for p in response.css(".et_pb_header_content_wrapper p"):
