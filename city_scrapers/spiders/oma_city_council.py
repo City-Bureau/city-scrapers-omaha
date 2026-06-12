@@ -94,7 +94,7 @@ class OmaCityCouncilSpider(CityScrapersSpider):
 
         super().__init__(*args, **kwargs)
 
-    async def start(self):
+    def start_requests(self):
         """Kick off the spider with a normal Scrapy request.
 
         The real protected pages are fetched inside _run_crawl() using curl-cffi.
