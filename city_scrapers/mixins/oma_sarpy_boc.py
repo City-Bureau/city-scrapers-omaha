@@ -68,7 +68,7 @@ class OmaSarpyBocMixin(CityScrapersSpider, metaclass=OmaSarpyBocMixinMeta):
         """Generate a cache-busting timestamp for API requests."""
         return int(datetime.now(timezone.utc).timestamp() * 1000)
 
-    async def start(self):
+    def start_requests(self):
         """Request meetings from 2019 through one year in the future."""
         today = date.today()
         params = {
